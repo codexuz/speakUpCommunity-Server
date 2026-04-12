@@ -1,11 +1,9 @@
+import './env';
 import cors from 'cors';
-import dotenv from 'dotenv';
 import express from 'express';
 import fs from 'fs';
 import http from 'http';
 import https from 'https';
-
-dotenv.config();
 
 import { authLimiter, defaultLimiter } from './middleware/rateLimiter';
 import analyticsRoutes from './routes/analytics';
