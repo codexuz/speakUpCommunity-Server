@@ -1,0 +1,181 @@
+generator client {
+    provider = "prisma-client-js"
+}
+
+datasource db {
+    provider  = "postgresql"
+    url       = env("DATABASE_URL")
+    directUrl = env("DIRECT_URL")
+}
+
+model User {
+    id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+    username  String   @unique
+    fullName  String   @map("fullName")
+    password  String
+    role      String   @default("student")
+    gender    String?
+    region    String?
+    avatarUrl String?  @map("avatarUrl")
+    pushToken String?  @map("push_token")
+    createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+    responses    Response[]
+    groups       Group[]            @relation("CreatorGroups")
+    memberships  GroupMember[]
+    reviews      Review[]
+    likes        Like[]
+    comments     Comment[]
+    joinRequests GroupJoinRequest[]
+
+    @@map("users")
+}
+
+model Test {
+    id          Int      @id @default(autoincrement())
+    title       String
+    description String?
+    createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+    questions Question[]
+
+    @@map("tests")
+}
+
+model Question {
+    id            Int      @id @default(autoincrement())
+    testId        Int      @map("test_id")
+    qText         String   @map("q_text")
+    part          String
+    image         String?
+    speakingTimer Int      @default(30) @map("speaking_timer")
+    prepTimer     Int      @default(5) @map("prep_timer")
+    createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+    test      Test       @relation(fields: [testId], references: [id], onDelete: Cascade)
+    responses Response[]
+
+    @@map("questions")
+}
+
+model Response {
+    id              BigInt   @id @default(autoincrement())
+    questionId      Int      @map("question_id")
+    studentId       String   @map("student_id") @db.Uuid
+    localUri        String?  @map("local_uri")
+    remoteUrl       String?  @map("remote_url")
+    teacherScore    Int?     @map("teacher_score")
+    teacherFeedback String?  @map("teacher_feedback")
+    visibility      String   @default("private") // 'private' | 'group' | 'community'
+    groupId         String?  @map("group_id") @db.Uuid
+    likes           Int      @default(0)
+    commentsCount   Int      @default(0) @map("comments_count")
+    scoreAvg        Float?   @map("score_avg")
+    audioProcessed  Boolean  @default(false) @map("audio_processed")
+    createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+    question     Question  @relation(fields: [questionId], references: [id], onDelete: Cascade)
+    student      User      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+    group        Group?    @relation(fields: [groupId], references: [id], onDelete: SetNull)
+    reviews      Review[]
+    likedBy      Like[]
+    commentsList Comment[]
+
+    @@index([studentId])
+    @@index([groupId])
+    @@index([visibility])
+    @@index([createdAt])
+    @@map("responses")
+}
+
+model Review {
+    id         BigInt   @id @default(autoincrement())
+    responseId BigInt   @map("response_id")
+    reviewerId String   @map("reviewer_id") @db.Uuid
+    score      Int
+    feedback   String?
+    createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+    response Response @relation(fields: [responseId], references: [id], onDelete: Cascade)
+    reviewer User     @relation(fields: [reviewerId], references: [id], onDelete: Cascade)
+
+    @@unique([responseId, reviewerId])
+    @@index([reviewerId])
+    @@map("reviews")
+}
+
+model Like {
+    id         BigInt   @id @default(autoincrement())
+    responseId BigInt   @map("response_id")
+    userId     String   @map("user_id") @db.Uuid
+    createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+    response Response @relation(fields: [responseId], references: [id], onDelete: Cascade)
+    user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    @@unique([responseId, userId])
+    @@map("likes")
+}
+
+model Comment {
+    id         BigInt   @id @default(autoincrement())
+    responseId BigInt   @map("response_id")
+    userId     String   @map("user_id") @db.Uuid
+    text       String
+    createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+    response Response @relation(fields: [responseId], references: [id], onDelete: Cascade)
+    user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    @@index([responseId])
+    @@map("comments")
+}
+
+model Group {
+    id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+    name         String
+    description  String?
+    createdById  String   @map("teacher_id") @db.Uuid
+    referralCode String   @unique @map("referral_code")
+    createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+    creator      User               @relation("CreatorGroups", fields: [createdById], references: [id], onDelete: Cascade)
+    members      GroupMember[]
+    responses    Response[]
+    joinRequests GroupJoinRequest[]
+
+    @@map("groups")
+}
+
+model GroupMember {
+    id       BigInt   @id @default(autoincrement())
+    groupId  String   @map("group_id") @db.Uuid
+    userId   String   @map("user_id") @db.Uuid
+    role     String   @default("student") // 'owner' | 'teacher' | 'student'
+    joinedAt DateTime @default(now()) @map("joined_at") @db.Timestamptz
+
+    group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+    user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    @@unique([groupId, userId])
+    @@index([userId])
+    @@index([role])
+    @@map("group_members")
+}
+
+model GroupJoinRequest {
+    id        BigInt   @id @default(autoincrement())
+    groupId   String   @map("group_id") @db.Uuid
+    userId    String   @map("user_id") @db.Uuid
+    message   String?
+    status    String   @default("pending") // 'pending' | 'approved' | 'rejected'
+    createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+    updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+    group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+    user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    @@unique([groupId, userId])
+    @@index([status])
+    @@map("group_join_requests")
+}
