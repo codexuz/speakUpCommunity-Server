@@ -23,14 +23,14 @@ if (process.env.REDIS_URL) {
       // Example: const compressed = await compressWithFfmpeg(buffer);
       // For now, re-upload as "processed" to demonstrate the pipeline
       const processedFileName = fileName.replace(/(\.[^.]+)$/, '_processed$1');
-      await uploadAudio(processedFileName, buffer, 'audio/m4a');
+      const processedUrl = await uploadAudio(processedFileName, buffer, 'audio/m4a');
 
       // Update DB: mark as processed, update URL to processed file
       await prisma.response.update({
         where: { id: BigInt(responseId) },
         data: {
           audioProcessed: true,
-          remoteUrl: processedFileName,
+          remoteUrl: processedUrl,
         },
       });
 
