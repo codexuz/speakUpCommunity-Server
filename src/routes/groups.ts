@@ -138,6 +138,61 @@ router.get('/student/:studentId', async (req: Request, res: Response) => {
 
 // ---------- Single group ----------
 
+// GET /api/groups/search?q=name — search groups by name (for students to discover)
+router.get('/search', async (req: Request, res: Response) => {
+  try {
+    const q = (req.query.q as string || '').trim();
+    if (!q) {
+      res.status(400).json({ error: 'q query parameter is required' });
+      return;
+    }
+
+    const auth = (req as AuthenticatedRequest).auth!;
+    const groups = await prisma.group.findMany({
+      where: { name: { contains: q, mode: 'insensitive' } },
+      include: {
+        creator: { select: { fullName: true, avatarUrl: true } },
+        _count: { select: { members: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+    });
+
+    // Mark whether the user is already a member or has a pending request
+    const groupIds = groups.map((g) => g.id);
+    const [memberships, joinRequests] = await Promise.all([
+      prisma.groupMember.findMany({
+        where: { userId: auth.userId, groupId: { in: groupIds } },
+        select: { groupId: true },
+      }),
+      prisma.groupJoinRequest.findMany({
+        where: { userId: auth.userId, groupId: { in: groupIds }, status: 'pending' },
+        select: { groupId: true },
+      }),
+    ]);
+    const memberSet = new Set(memberships.map((m) => m.groupId));
+    const pendingSet = new Set(joinRequests.map((r) => r.groupId));
+
+    res.json(
+      groups.map((g) => ({
+        id: g.id,
+        name: g.name,
+        description: g.description,
+        createdAt: g.createdAt,
+        creator: g.creator,
+        memberCount: g._count.members,
+        status: memberSet.has(g.id)
+          ? 'member'
+          : pendingSet.has(g.id)
+            ? 'pending'
+            : 'none',
+      })),
+    );
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // GET /api/groups/:id
 router.get('/:id', async (req: Request, res: Response) => {
   try {
@@ -242,61 +297,6 @@ router.get('/:id/submissions', async (req: Request, res: Response) => {
 });
 
 // ---------- Group CRUD ----------
-
-// GET /api/groups/search?q=name — search groups by name (for students to discover)
-router.get('/search', async (req: Request, res: Response) => {
-  try {
-    const q = (req.query.q as string || '').trim();
-    if (!q) {
-      res.status(400).json({ error: 'q query parameter is required' });
-      return;
-    }
-
-    const auth = (req as AuthenticatedRequest).auth!;
-    const groups = await prisma.group.findMany({
-      where: { name: { contains: q, mode: 'insensitive' } },
-      include: {
-        creator: { select: { fullName: true, avatarUrl: true } },
-        _count: { select: { members: true } },
-      },
-      orderBy: { createdAt: 'desc' },
-      take: 20,
-    });
-
-    // Mark whether the user is already a member or has a pending request
-    const groupIds = groups.map((g) => g.id);
-    const [memberships, joinRequests] = await Promise.all([
-      prisma.groupMember.findMany({
-        where: { userId: auth.userId, groupId: { in: groupIds } },
-        select: { groupId: true },
-      }),
-      prisma.groupJoinRequest.findMany({
-        where: { userId: auth.userId, groupId: { in: groupIds }, status: 'pending' },
-        select: { groupId: true },
-      }),
-    ]);
-    const memberSet = new Set(memberships.map((m) => m.groupId));
-    const pendingSet = new Set(joinRequests.map((r) => r.groupId));
-
-    res.json(
-      groups.map((g) => ({
-        id: g.id,
-        name: g.name,
-        description: g.description,
-        createdAt: g.createdAt,
-        creator: g.creator,
-        memberCount: g._count.members,
-        status: memberSet.has(g.id)
-          ? 'member'
-          : pendingSet.has(g.id)
-            ? 'pending'
-            : 'none',
-      })),
-    );
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
 
 // POST /api/groups — create group (teacher/admin only, creator becomes owner)
 router.post('/', async (req: Request, res: Response) => {
