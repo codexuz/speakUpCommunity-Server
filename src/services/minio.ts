@@ -29,7 +29,7 @@ export async function uploadAudio(
 }
 
 export function getAudioUrl(fileName: string): string {
-  return `https://0c274cbb-6ce5-45fb-8540-ad2b7912cd23.srvstatic.uz/${fileName}`;
+  return `https://0c274cbb-6ce5-45fb-8540-ad2b7912cd23.srvstatic.uz/${BUCKET}/${fileName}`;
 }
 
 export async function deleteAudio(fileName: string): Promise<void> {

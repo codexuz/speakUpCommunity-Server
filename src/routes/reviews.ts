@@ -8,11 +8,18 @@ const router = Router();
 
 router.use(authenticateRequest);
 
-// POST /api/reviews/:speakingId — post or update a review
-router.post('/:speakingId', async (req: Request, res: Response) => {
+function getCefrLevel(score: number): string {
+  if (score <= 37) return 'A2';
+  if (score <= 50) return 'B1';
+  if (score <= 64) return 'B2';
+  return 'C1';
+}
+
+// POST /api/reviews/:sessionId — post or update a review for a session
+router.post('/:sessionId', async (req: Request, res: Response) => {
   try {
     const auth = (req as AuthenticatedRequest).auth!;
-    const responseId = BigInt(req.params.speakingId as string);
+    const sessionId = BigInt(req.params.sessionId as string);
     const { score, feedback } = req.body;
 
     if (score === undefined || score === null) {
@@ -21,35 +28,36 @@ router.post('/:speakingId', async (req: Request, res: Response) => {
     }
 
     const numScore = parseInt(score);
-    if (isNaN(numScore) || numScore < 0 || numScore > 9) {
-      res.status(400).json({ error: 'Score must be between 0 and 9' });
+    if (isNaN(numScore) || numScore < 0 || numScore > 75) {
+      res.status(400).json({ error: 'Score must be between 0 and 75' });
       return;
     }
 
-    // Check speaking submission exists
-    const speaking = await prisma.response.findUnique({
-      where: { id: responseId },
+    // Check session exists
+    const session = await prisma.testSession.findUnique({
+      where: { id: sessionId },
       select: {
-        studentId: true,
-        student: { select: { pushToken: true, fullName: true } },
+        userId: true,
+        user: { select: { pushToken: true, fullName: true } },
+        test: { select: { title: true } },
       },
     });
-    if (!speaking) {
-      res.status(404).json({ error: 'Speaking submission not found' });
+    if (!session) {
+      res.status(404).json({ error: 'Session not found' });
       return;
     }
 
-    // Can't review own submission
-    if (speaking.studentId === auth.userId) {
-      res.status(400).json({ error: 'Cannot review your own submission' });
+    // Can't review own session
+    if (session.userId === auth.userId) {
+      res.status(400).json({ error: 'Cannot review your own session' });
       return;
     }
 
-    // Upsert review (one per reviewer per submission)
+    // Upsert review (one per reviewer per session)
     const review = await prisma.review.upsert({
-      where: { responseId_reviewerId: { responseId, reviewerId: auth.userId } },
+      where: { sessionId_reviewerId: { sessionId, reviewerId: auth.userId } },
       create: {
-        responseId,
+        sessionId,
         reviewerId: auth.userId,
         score: numScore,
         feedback: feedback || null,
@@ -62,63 +70,74 @@ router.post('/:speakingId', async (req: Request, res: Response) => {
 
     // Recalculate average score
     const avgResult = await prisma.review.aggregate({
-      where: { responseId },
+      where: { sessionId },
       _avg: { score: true },
     });
-    await prisma.response.update({
-      where: { id: responseId },
+    await prisma.testSession.update({
+      where: { id: sessionId },
       data: { scoreAvg: avgResult._avg.score },
     });
 
+    const cefrLevel = getCefrLevel(numScore);
+
     // SSE + push notify the speaker
-    sseManager.sendToUser(speaking.studentId, 'new-review', {
-      speakingId: responseId.toString(),
+    sseManager.sendToUser(session.userId, 'new-review', {
+      sessionId: sessionId.toString(),
       reviewerName: auth.username,
       score: numScore,
+      cefrLevel,
     });
 
-    if (speaking.student.pushToken) {
+    if (session.user.pushToken) {
       await sendPushNotification(
-        speaking.student.pushToken,
+        session.user.pushToken,
         'New Review',
-        `${auth.username} gave you ${numScore}/9`,
-        { type: 'review', responseId: responseId.toString() },
+        `${auth.username} gave you ${numScore}/75 (${cefrLevel})`,
+        { type: 'review', sessionId: sessionId.toString() },
       );
     }
 
-    res.status(201).json({ ...review, id: review.id.toString() });
+    res.status(201).json({
+      ...review,
+      id: review.id.toString(),
+      cefrLevel,
+    });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
 });
 
-// GET /api/reviews/:speakingId — all reviews for a submission
-router.get('/:speakingId', async (req: Request, res: Response) => {
+// GET /api/reviews/:sessionId — all reviews for a session
+router.get('/:sessionId', async (req: Request, res: Response) => {
   try {
-    const responseId = BigInt(req.params.speakingId as string);
+    const sessionId = BigInt(req.params.sessionId as string);
 
     const reviews = await prisma.review.findMany({
-      where: { responseId },
+      where: { sessionId },
       orderBy: { createdAt: 'desc' },
       include: {
         reviewer: { select: { id: true, fullName: true, username: true, avatarUrl: true } },
       },
     });
 
-    res.json(reviews.map((r: any) => ({ ...r, id: r.id.toString() })));
+    res.json(reviews.map((r: any) => ({
+      ...r,
+      id: r.id.toString(),
+      cefrLevel: getCefrLevel(r.score),
+    })));
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
 });
 
-// DELETE /api/reviews/:speakingId — delete own review
-router.delete('/:speakingId', async (req: Request, res: Response) => {
+// DELETE /api/reviews/:sessionId — delete own review
+router.delete('/:sessionId', async (req: Request, res: Response) => {
   try {
     const auth = (req as AuthenticatedRequest).auth!;
-    const responseId = BigInt(req.params.speakingId as string);
+    const sessionId = BigInt(req.params.sessionId as string);
 
     const review = await prisma.review.findUnique({
-      where: { responseId_reviewerId: { responseId, reviewerId: auth.userId } },
+      where: { sessionId_reviewerId: { sessionId, reviewerId: auth.userId } },
     });
     if (!review) {
       res.status(404).json({ error: 'Review not found' });
@@ -129,11 +148,11 @@ router.delete('/:speakingId', async (req: Request, res: Response) => {
 
     // Recalculate average score
     const avgResult = await prisma.review.aggregate({
-      where: { responseId },
+      where: { sessionId },
       _avg: { score: true },
     });
-    await prisma.response.update({
-      where: { id: responseId },
+    await prisma.testSession.update({
+      where: { id: sessionId },
       data: { scoreAvg: avgResult._avg.score },
     });
 

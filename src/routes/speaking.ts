@@ -19,6 +19,13 @@ const upload = multer({
   limits: { fileSize: 50 * 1024 * 1024 },
 });
 
+function getCefrLevel(score: number): string {
+  if (score <= 37) return 'A2';
+  if (score <= 51) return 'B1';
+  if (score <= 65) return 'B2';
+  return 'C1';
+}
+
 router.use(authenticateRequest);
 
 // ---------- SSE ----------
@@ -32,7 +39,7 @@ router.get('/events', (req: Request, res: Response) => {
 
 // ---------- List endpoints (before /:id) ----------
 
-// GET /api/speaking/my — current user's submissions
+// GET /api/speaking/my — current user's sessions (grouped by test session)
 router.get('/my', async (req: Request, res: Response) => {
   try {
     const auth = (req as AuthenticatedRequest).auth!;
@@ -40,22 +47,23 @@ router.get('/my', async (req: Request, res: Response) => {
     const limit = Math.min(50, Math.max(1, parseInt(req.query.limit as string) || 20));
     const offset = (page - 1) * limit;
 
-    const where = { studentId: auth.userId };
-    const [responses, total] = await Promise.all([
-      prisma.response.findMany({
+    const where = { userId: auth.userId };
+    const [sessions, total] = await Promise.all([
+      prisma.testSession.findMany({
         where,
         orderBy: { createdAt: 'desc' },
         skip: offset,
         take: limit,
         include: {
-          question: { select: { qText: true, part: true } },
+          test: { select: { id: true, title: true, description: true } },
+          _count: { select: { responses: true } },
         },
       }),
-      prisma.response.count({ where }),
+      prisma.testSession.count({ where }),
     ]);
 
     res.json({
-      data: responses.map((r: any) => ({ ...r, id: r.id.toString() })),
+      data: sessions.map((s: any) => ({ ...s, id: s.id.toString() })),
       pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
     });
   } catch (error: any) {
@@ -63,7 +71,78 @@ router.get('/my', async (req: Request, res: Response) => {
   }
 });
 
-// GET /api/speaking/pending — submissions without reviews (for teachers)
+// GET /api/speaking/sessions/:sessionId — get a session with test, user, and all responses
+router.get('/sessions/:sessionId', async (req: Request, res: Response) => {
+  try {
+    const auth = (req as AuthenticatedRequest).auth!;
+    const sessionId = BigInt(req.params.sessionId as string);
+
+    const session = await prisma.testSession.findUnique({
+      where: { id: sessionId },
+      include: {
+        test: { select: { id: true, title: true, description: true } },
+        user: { select: { id: true, fullName: true, username: true, avatarUrl: true } },
+        responses: {
+          orderBy: { createdAt: 'asc' },
+          include: {
+            question: { select: { id: true, qText: true, part: true, speakingTimer: true, prepTimer: true } },
+          },
+        },
+        reviews: {
+          include: { reviewer: { select: { id: true, fullName: true, avatarUrl: true } } },
+          orderBy: { createdAt: 'desc' },
+        },
+        _count: { select: { comments: true } },
+      },
+    });
+
+    if (!session) {
+      res.status(404).json({ error: 'Session not found' });
+      return;
+    }
+
+    // Check access: owner or teacher/admin can view
+    if (session.userId !== auth.userId && auth.role !== 'teacher' && auth.role !== 'admin') {
+      if (session.groupId) {
+        const membership = await prisma.groupMember.findUnique({
+          where: { groupId_userId: { groupId: session.groupId, userId: auth.userId } },
+        });
+        if (!membership) {
+          res.status(403).json({ error: 'Access denied' });
+          return;
+        }
+      } else if (session.visibility !== 'community') {
+        res.status(403).json({ error: 'Access denied' });
+        return;
+      }
+    }
+
+    // Check if current user liked this session
+    const liked = await prisma.like.findUnique({
+      where: { sessionId_userId: { sessionId: session.id, userId: auth.userId } },
+    });
+
+    res.json({
+      ...session,
+      id: session.id.toString(),
+      isLiked: !!liked,
+      cefrLevel: session.scoreAvg != null ? getCefrLevel(Math.round(session.scoreAvg)) : null,
+      responses: session.responses.map((r: any) => ({
+        ...r,
+        id: r.id.toString(),
+      })),
+      reviews: session.reviews.map((r: any) => ({
+        ...r,
+        id: r.id.toString(),
+        cefrLevel: getCefrLevel(r.score),
+      })),
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// GET /api/speaking/pending — sessions without reviews (for teachers)
 router.get('/pending', requireRole('teacher'), async (req: Request, res: Response) => {
   try {
     const page = Math.max(1, parseInt(req.query.page as string) || 1);
@@ -71,22 +150,23 @@ router.get('/pending', requireRole('teacher'), async (req: Request, res: Respons
     const offset = (page - 1) * limit;
 
     const where = { reviews: { none: {} } };
-    const [responses, total] = await Promise.all([
-      prisma.response.findMany({
+    const [sessions, total] = await Promise.all([
+      prisma.testSession.findMany({
         where,
         orderBy: { createdAt: 'desc' },
         skip: offset,
         take: limit,
         include: {
-          student: { select: { id: true, fullName: true, username: true, avatarUrl: true } },
-          question: { select: { qText: true, part: true } },
+          user: { select: { id: true, fullName: true, username: true, avatarUrl: true } },
+          test: { select: { id: true, title: true, description: true } },
+          _count: { select: { responses: true } },
         },
       }),
-      prisma.response.count({ where }),
+      prisma.testSession.count({ where }),
     ]);
 
     res.json({
-      data: responses.map((r: any) => ({ ...r, id: r.id.toString() })),
+      data: sessions.map((s: any) => ({ ...s, id: s.id.toString() })),
       pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
     });
   } catch (error: any) {
@@ -105,7 +185,7 @@ router.post(
   async (req: Request, res: Response) => {
     try {
       const auth = (req as AuthenticatedRequest).auth!;
-      const { questionId, visibility, groupId } = req.body;
+      const { questionId, visibility, groupId, sessionId, testId } = req.body;
 
       if (!questionId) {
         res.status(400).json({ error: 'questionId is required' });
@@ -115,6 +195,38 @@ router.post(
       const vis = ['private', 'group', 'community'].includes(visibility)
         ? visibility
         : 'private';
+
+      // Resolve or create a session
+      let resolvedSessionId: bigint | null = null;
+
+      if (sessionId) {
+        // Use existing session
+        const session = await prisma.testSession.findUnique({
+          where: { id: BigInt(sessionId) },
+          select: { id: true, userId: true },
+        });
+        if (!session || session.userId !== auth.userId) {
+          res.status(400).json({ error: 'Invalid sessionId' });
+          return;
+        }
+        resolvedSessionId = session.id;
+      } else if (testId) {
+        // Create a new session for this test
+        const test = await prisma.test.findUnique({ where: { id: parseInt(testId) } });
+        if (!test) {
+          res.status(400).json({ error: 'Invalid testId' });
+          return;
+        }
+        const session = await prisma.testSession.create({
+          data: {
+            testId: test.id,
+            userId: auth.userId,
+            visibility: vis,
+            groupId: groupId || null,
+          },
+        });
+        resolvedSessionId = session.id;
+      }
 
       let remoteUrl: string | null = null;
       let fileName: string | null = null;
@@ -133,9 +245,8 @@ router.post(
         data: {
           questionId: parseInt(questionId),
           studentId: auth.userId,
+          sessionId: resolvedSessionId,
           remoteUrl,
-          visibility: vis,
-          groupId: groupId || null,
         },
         include: {
           student: { select: { id: true, fullName: true, username: true, avatarUrl: true } },
@@ -187,7 +298,11 @@ router.post(
         }
       }
 
-      res.status(201).json({ ...response, id: response.id.toString() });
+      res.status(201).json({
+        ...response,
+        id: response.id.toString(),
+        sessionId: resolvedSessionId?.toString() || null,
+      });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
@@ -203,10 +318,6 @@ router.get('/:id', async (req: Request, res: Response) => {
       include: {
         student: { select: { id: true, fullName: true, username: true, avatarUrl: true } },
         question: { select: { qText: true, part: true } },
-        reviews: {
-          include: { reviewer: { select: { id: true, fullName: true, avatarUrl: true } } },
-          orderBy: { createdAt: 'desc' },
-        },
       },
     });
 
@@ -215,36 +326,47 @@ router.get('/:id', async (req: Request, res: Response) => {
       return;
     }
 
-    // Visibility check
-    if (response.visibility === 'private' && response.studentId !== auth.userId) {
-      if (response.groupId) {
-        const membership = await prisma.groupMember.findUnique({
-          where: { groupId_userId: { groupId: response.groupId, userId: auth.userId } },
-        });
-        if (!membership || !['owner', 'teacher'].includes(membership.role)) {
+    // Visibility check via session
+    const session = response.sessionId
+      ? await prisma.testSession.findUnique({
+          where: { id: response.sessionId },
+          select: { visibility: true, groupId: true, userId: true },
+        })
+      : null;
+
+    if (session) {
+      if (session.visibility === 'private' && response.studentId !== auth.userId) {
+        if (session.groupId) {
+          const membership = await prisma.groupMember.findUnique({
+            where: { groupId_userId: { groupId: session.groupId, userId: auth.userId } },
+          });
+          if (!membership || !['owner', 'teacher'].includes(membership.role)) {
+            res.status(403).json({ error: 'This submission is private' });
+            return;
+          }
+        } else {
           res.status(403).json({ error: 'This submission is private' });
           return;
         }
-      } else {
-        res.status(403).json({ error: 'This submission is private' });
-        return;
-      }
-    } else if (response.visibility === 'group' && response.groupId) {
-      if (response.studentId !== auth.userId) {
-        const membership = await prisma.groupMember.findUnique({
-          where: { groupId_userId: { groupId: response.groupId, userId: auth.userId } },
-        });
-        if (!membership) {
-          res.status(403).json({ error: 'Only group members can view this' });
-          return;
+      } else if (session.visibility === 'group' && session.groupId) {
+        if (response.studentId !== auth.userId) {
+          const membership = await prisma.groupMember.findUnique({
+            where: { groupId_userId: { groupId: session.groupId, userId: auth.userId } },
+          });
+          if (!membership) {
+            res.status(403).json({ error: 'Only group members can view this' });
+            return;
+          }
         }
       }
     }
 
-    // Check if current user liked this
-    const liked = await prisma.like.findUnique({
-      where: { responseId_userId: { responseId: response.id, userId: auth.userId } },
-    });
+    // Check if current user liked the session
+    const liked = response.sessionId
+      ? await prisma.like.findUnique({
+          where: { sessionId_userId: { sessionId: response.sessionId, userId: auth.userId } },
+        })
+      : null;
 
     res.json({
       ...response,
@@ -277,7 +399,17 @@ router.put('/:id', async (req: Request, res: Response) => {
     const { visibility } = req.body;
     const updates: any = {};
     if (visibility && ['private', 'group', 'community'].includes(visibility)) {
-      updates.visibility = visibility;
+      // Update visibility on the session if response has one
+      const resp = await prisma.response.findUnique({
+        where: { id: BigInt(req.params.id as string) },
+        select: { sessionId: true },
+      });
+      if (resp?.sessionId) {
+        await prisma.testSession.update({
+          where: { id: resp.sessionId },
+          data: { visibility },
+        });
+      }
     }
 
     const response = await prisma.response.update({
@@ -316,16 +448,16 @@ router.delete('/:id', async (req: Request, res: Response) => {
   }
 });
 
-// ---------- Likes ----------
+// ---------- Likes (session-based) ----------
 
-// POST /api/speaking/:id/like
-router.post('/:id/like', async (req: Request, res: Response) => {
+// POST /api/speaking/sessions/:sessionId/like
+router.post('/sessions/:sessionId/like', async (req: Request, res: Response) => {
   try {
     const auth = (req as AuthenticatedRequest).auth!;
-    const responseId = BigInt(req.params.id as string);
+    const sessionId = BigInt(req.params.sessionId as string);
 
     const existing = await prisma.like.findUnique({
-      where: { responseId_userId: { responseId, userId: auth.userId } },
+      where: { sessionId_userId: { sessionId, userId: auth.userId } },
     });
     if (existing) {
       res.status(409).json({ error: 'Already liked' });
@@ -333,9 +465,9 @@ router.post('/:id/like', async (req: Request, res: Response) => {
     }
 
     await prisma.$transaction([
-      prisma.like.create({ data: { responseId, userId: auth.userId } }),
-      prisma.response.update({
-        where: { id: responseId },
+      prisma.like.create({ data: { sessionId, userId: auth.userId } }),
+      prisma.testSession.update({
+        where: { id: sessionId },
         data: { likes: { increment: 1 } },
       }),
     ]);
@@ -346,14 +478,14 @@ router.post('/:id/like', async (req: Request, res: Response) => {
   }
 });
 
-// DELETE /api/speaking/:id/like
-router.delete('/:id/like', async (req: Request, res: Response) => {
+// DELETE /api/speaking/sessions/:sessionId/like
+router.delete('/sessions/:sessionId/like', async (req: Request, res: Response) => {
   try {
     const auth = (req as AuthenticatedRequest).auth!;
-    const responseId = BigInt(req.params.id as string);
+    const sessionId = BigInt(req.params.sessionId as string);
 
     const existing = await prisma.like.findUnique({
-      where: { responseId_userId: { responseId, userId: auth.userId } },
+      where: { sessionId_userId: { sessionId, userId: auth.userId } },
     });
     if (!existing) {
       res.status(404).json({ error: 'Not liked' });
@@ -362,10 +494,10 @@ router.delete('/:id/like', async (req: Request, res: Response) => {
 
     await prisma.$transaction([
       prisma.like.delete({
-        where: { responseId_userId: { responseId, userId: auth.userId } },
+        where: { sessionId_userId: { sessionId, userId: auth.userId } },
       }),
-      prisma.response.update({
-        where: { id: responseId },
+      prisma.testSession.update({
+        where: { id: sessionId },
         data: { likes: { decrement: 1 } },
       }),
     ]);
@@ -376,13 +508,13 @@ router.delete('/:id/like', async (req: Request, res: Response) => {
   }
 });
 
-// ---------- Comments ----------
+// ---------- Comments (session-based) ----------
 
-// POST /api/speaking/:id/comment
-router.post('/:id/comment', async (req: Request, res: Response) => {
+// POST /api/speaking/sessions/:sessionId/comment
+router.post('/sessions/:sessionId/comment', async (req: Request, res: Response) => {
   try {
     const auth = (req as AuthenticatedRequest).auth!;
-    const responseId = BigInt(req.params.id as string);
+    const sessionId = BigInt(req.params.sessionId as string);
     const { text } = req.body;
 
     if (!text?.trim()) {
@@ -392,35 +524,35 @@ router.post('/:id/comment', async (req: Request, res: Response) => {
 
     const [comment] = await prisma.$transaction([
       prisma.comment.create({
-        data: { responseId, userId: auth.userId, text: text.trim() },
+        data: { sessionId, userId: auth.userId, text: text.trim() },
         include: {
           user: { select: { id: true, fullName: true, username: true, avatarUrl: true } },
         },
       }),
-      prisma.response.update({
-        where: { id: responseId },
+      prisma.testSession.update({
+        where: { id: sessionId },
         data: { commentsCount: { increment: 1 } },
       }),
     ]);
 
-    // Notify the speaker
-    const speaking = await prisma.response.findUnique({
-      where: { id: responseId },
-      select: { studentId: true, student: { select: { pushToken: true } } },
+    // Notify the session owner
+    const session = await prisma.testSession.findUnique({
+      where: { id: sessionId },
+      select: { userId: true, user: { select: { pushToken: true } } },
     });
-    if (speaking && speaking.studentId !== auth.userId && speaking.student.pushToken) {
+    if (session && session.userId !== auth.userId && session.user.pushToken) {
       await sendPushNotification(
-        speaking.student.pushToken,
+        session.user.pushToken,
         'New Comment',
-        `${auth.username} commented on your speaking`,
-        { type: 'comment', responseId: responseId.toString() },
+        `${auth.username} commented on your session`,
+        { type: 'comment', sessionId: sessionId.toString() },
       );
     }
 
-    // SSE notify the speaker
-    if (speaking && speaking.studentId !== auth.userId) {
-      sseManager.sendToUser(speaking.studentId, 'new-comment', {
-        speakingId: responseId.toString(),
+    // SSE notify the session owner
+    if (session && session.userId !== auth.userId) {
+      sseManager.sendToUser(session.userId, 'new-comment', {
+        sessionId: sessionId.toString(),
         commenterName: auth.username,
         text: text.trim().slice(0, 100),
       });
@@ -432,16 +564,16 @@ router.post('/:id/comment', async (req: Request, res: Response) => {
   }
 });
 
-// GET /api/speaking/:id/comments
-router.get('/:id/comments', async (req: Request, res: Response) => {
+// GET /api/speaking/sessions/:sessionId/comments
+router.get('/sessions/:sessionId/comments', async (req: Request, res: Response) => {
   try {
     const page = Math.max(1, parseInt(req.query.page as string) || 1);
     const limit = Math.min(50, Math.max(1, parseInt(req.query.limit as string) || 20));
-    const responseId = BigInt(req.params.id as string);
+    const sessionId = BigInt(req.params.sessionId as string);
 
     const [comments, total] = await Promise.all([
       prisma.comment.findMany({
-        where: { responseId },
+        where: { sessionId },
         orderBy: { createdAt: 'desc' },
         skip: (page - 1) * limit,
         take: limit,
@@ -449,7 +581,7 @@ router.get('/:id/comments', async (req: Request, res: Response) => {
           user: { select: { id: true, fullName: true, username: true, avatarUrl: true } },
         },
       }),
-      prisma.comment.count({ where: { responseId } }),
+      prisma.comment.count({ where: { sessionId } }),
     ]);
 
     res.json({

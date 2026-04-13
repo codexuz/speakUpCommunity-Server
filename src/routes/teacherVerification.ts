@@ -1,3 +1,4 @@
+import { RequestStatus } from '@prisma/client';
 import { Request, Response, Router } from 'express';
 import { AuthenticatedRequest, authenticateRequest } from '../middleware/auth';
 import { sendTelegramNotification } from '../notifications';
@@ -73,7 +74,7 @@ router.get('/', async (req: Request, res: Response) => {
       res.status(403).json({ error: 'Admin only' });
       return;
     }
-    const status = req.query.status as string | undefined;
+    const status = req.query.status as RequestStatus | undefined;
     const requests = await prisma.teacherVerification.findMany({
       where: status ? { status } : undefined,
       orderBy: { createdAt: 'desc' },

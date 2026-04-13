@@ -10,6 +10,13 @@ const router = Router();
 
 router.use(authenticateRequest);
 
+function getCefrLevel(score: number): string {
+  if (score <= 37) return 'A2';
+  if (score <= 51) return 'B1';
+  if (score <= 65) return 'B2';
+  return 'C1';
+}
+
 function generateReferralCode(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let code = '';
@@ -245,14 +252,14 @@ router.get('/:id/members', async (req: Request, res: Response) => {
   }
 });
 
-// GET /api/groups/:id/submissions — speaking submissions for the group
+// GET /api/groups/:id/submissions — session submissions for the group
 router.get('/:id/submissions', async (req: Request, res: Response) => {
   try {
     const auth = (req as AuthenticatedRequest).auth!;
     const result = await requireGroupRole(
       req.params.id as string,
       auth.userId,
-      ['owner', 'teacher'],
+      ['owner', 'teacher', 'student'],
       res,
     );
     if (!result) return;
@@ -261,34 +268,28 @@ router.get('/:id/submissions', async (req: Request, res: Response) => {
     const limit = Math.min(50, Math.max(1, parseInt(req.query.limit as string) || 20));
     const offset = (page - 1) * limit;
 
-    const members = await prisma.groupMember.findMany({
-      where: { groupId: result.group.id },
-      select: { userId: true },
-    });
-    const memberIds = members.map((m: any) => m.userId);
-
-    if (memberIds.length === 0) {
-      res.json({ data: [], pagination: { page, limit, total: 0, totalPages: 0 } });
-      return;
-    }
-
-    const where = { studentId: { in: memberIds } };
-    const [responses, total] = await Promise.all([
-      prisma.response.findMany({
+    const where = { groupId: result.group.id };
+    const [sessions, total] = await Promise.all([
+      prisma.testSession.findMany({
         where,
         orderBy: { createdAt: 'desc' },
         skip: offset,
         take: limit,
         include: {
-          student: { select: { id: true, fullName: true, username: true, avatarUrl: true } },
-          question: { select: { qText: true, part: true } },
+          user: { select: { id: true, fullName: true, username: true, avatarUrl: true } },
+          test: { select: { id: true, title: true, description: true } },
+          _count: { select: { responses: true, reviews: true, comments: true } },
         },
       }),
-      prisma.response.count({ where }),
+      prisma.testSession.count({ where }),
     ]);
 
     res.json({
-      data: responses.map((r: any) => ({ ...r, id: r.id.toString() })),
+      data: sessions.map((s: any) => ({
+        ...s,
+        id: s.id.toString(),
+        cefrLevel: s.scoreAvg != null ? getCefrLevel(Math.round(s.scoreAvg)) : null,
+      })),
       pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
     });
   } catch (error: any) {

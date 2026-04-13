@@ -8,12 +8,44 @@ datasource db {
     directUrl = env("DIRECT_URL")
 }
 
+enum UserRole {
+    student
+    teacher
+    admin
+
+    @@map("user_role")
+}
+
+enum Visibility {
+    private
+    group
+    community
+
+    @@map("visibility")
+}
+
+enum GroupRole {
+    owner
+    teacher
+    student
+
+    @@map("group_role")
+}
+
+enum RequestStatus {
+    pending
+    approved
+    rejected
+
+    @@map("request_status")
+}
+
 model User {
     id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
     username        String   @unique
     fullName        String   @map("fullName")
     password        String
-    role            String   @default("student")
+    role            UserRole @default(student)
     verifiedTeacher Boolean  @default(false) @map("verified_teacher")
     gender          String?
     region          String?
@@ -22,6 +54,7 @@ model User {
     createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
 
     responses             Response[]
+    testSessions          TestSession[]
     groups                Group[]               @relation("CreatorGroups")
     memberships           GroupMember[]
     reviews               Review[]
@@ -41,8 +74,36 @@ model Test {
     createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
 
     questions Question[]
+    sessions  TestSession[]
 
     @@map("tests")
+}
+
+model TestSession {
+    id            BigInt     @id @default(autoincrement())
+    testId        Int        @map("test_id")
+    userId        String     @map("user_id") @db.Uuid
+    visibility    Visibility @default(private)
+    groupId       String?    @map("group_id") @db.Uuid
+    likes         Int        @default(0)
+    commentsCount Int        @default(0) @map("comments_count")
+    scoreAvg      Float?     @map("score_avg")
+    createdAt     DateTime   @default(now()) @map("created_at") @db.Timestamptz
+
+    test      Test       @relation(fields: [testId], references: [id], onDelete: Cascade)
+    user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+    group     Group?     @relation(fields: [groupId], references: [id], onDelete: SetNull)
+    responses Response[]
+    reviews   Review[]
+    likedBy   Like[]
+    comments  Comment[]
+
+    @@index([userId])
+    @@index([testId])
+    @@index([groupId])
+    @@index([visibility])
+    @@index([createdAt])
+    @@map("test_sessions")
 }
 
 model Question {
@@ -65,72 +126,64 @@ model Response {
     id              BigInt   @id @default(autoincrement())
     questionId      Int      @map("question_id")
     studentId       String   @map("student_id") @db.Uuid
+    sessionId       BigInt?  @map("session_id")
     localUri        String?  @map("local_uri")
     remoteUrl       String?  @map("remote_url")
     teacherScore    Int?     @map("teacher_score")
     teacherFeedback String?  @map("teacher_feedback")
-    visibility      String   @default("private") // 'private' | 'group' | 'community'
-    groupId         String?  @map("group_id") @db.Uuid
-    likes           Int      @default(0)
-    commentsCount   Int      @default(0) @map("comments_count")
-    scoreAvg        Float?   @map("score_avg")
     audioProcessed  Boolean  @default(false) @map("audio_processed")
     createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
 
-    question     Question  @relation(fields: [questionId], references: [id], onDelete: Cascade)
-    student      User      @relation(fields: [studentId], references: [id], onDelete: Cascade)
-    group        Group?    @relation(fields: [groupId], references: [id], onDelete: SetNull)
-    reviews      Review[]
-    likedBy      Like[]
-    commentsList Comment[]
+    question Question     @relation(fields: [questionId], references: [id], onDelete: Cascade)
+    student  User         @relation(fields: [studentId], references: [id], onDelete: Cascade)
+    session  TestSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
 
     @@index([studentId])
-    @@index([groupId])
-    @@index([visibility])
+    @@index([sessionId])
     @@index([createdAt])
     @@map("responses")
 }
 
 model Review {
     id         BigInt   @id @default(autoincrement())
-    responseId BigInt   @map("response_id")
+    sessionId  BigInt   @map("session_id")
     reviewerId String   @map("reviewer_id") @db.Uuid
-    score      Int
+    score      Int // 0-75
     feedback   String?
     createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
 
-    response Response @relation(fields: [responseId], references: [id], onDelete: Cascade)
-    reviewer User     @relation(fields: [reviewerId], references: [id], onDelete: Cascade)
+    session  TestSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+    reviewer User        @relation(fields: [reviewerId], references: [id], onDelete: Cascade)
 
-    @@unique([responseId, reviewerId])
+    @@unique([sessionId, reviewerId])
     @@index([reviewerId])
     @@map("reviews")
 }
 
 model Like {
-    id         BigInt   @id @default(autoincrement())
-    responseId BigInt   @map("response_id")
-    userId     String   @map("user_id") @db.Uuid
-    createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+    id        BigInt   @id @default(autoincrement())
+    sessionId BigInt   @map("session_id")
+    userId    String   @map("user_id") @db.Uuid
+    createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
 
-    response Response @relation(fields: [responseId], references: [id], onDelete: Cascade)
-    user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+    session TestSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+    user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-    @@unique([responseId, userId])
+    @@unique([sessionId, userId])
     @@map("likes")
 }
 
 model Comment {
-    id         BigInt   @id @default(autoincrement())
-    responseId BigInt   @map("response_id")
-    userId     String   @map("user_id") @db.Uuid
-    text       String
-    createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+    id        BigInt   @id @default(autoincrement())
+    sessionId BigInt   @map("session_id")
+    userId    String   @map("user_id") @db.Uuid
+    text      String
+    createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
 
-    response Response @relation(fields: [responseId], references: [id], onDelete: Cascade)
-    user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+    session TestSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+    user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-    @@index([responseId])
+    @@index([sessionId])
     @@map("comments")
 }
 
@@ -145,18 +198,18 @@ model Group {
 
     creator      User               @relation("CreatorGroups", fields: [createdById], references: [id], onDelete: Cascade)
     members      GroupMember[]
-    responses    Response[]
+    sessions     TestSession[]
     joinRequests GroupJoinRequest[]
 
     @@map("groups")
 }
 
 model GroupMember {
-    id       BigInt   @id @default(autoincrement())
-    groupId  String   @map("group_id") @db.Uuid
-    userId   String   @map("user_id") @db.Uuid
-    role     String   @default("student") // 'owner' | 'teacher' | 'student'
-    joinedAt DateTime @default(now()) @map("joined_at") @db.Timestamptz
+    id       BigInt    @id @default(autoincrement())
+    groupId  String    @map("group_id") @db.Uuid
+    userId   String    @map("user_id") @db.Uuid
+    role     GroupRole @default(student)
+    joinedAt DateTime  @default(now()) @map("joined_at") @db.Timestamptz
 
     group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
     user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -168,13 +221,13 @@ model GroupMember {
 }
 
 model GroupJoinRequest {
-    id        BigInt   @id @default(autoincrement())
-    groupId   String   @map("group_id") @db.Uuid
-    userId    String   @map("user_id") @db.Uuid
+    id        BigInt        @id @default(autoincrement())
+    groupId   String        @map("group_id") @db.Uuid
+    userId    String        @map("user_id") @db.Uuid
     message   String?
-    status    String   @default("pending") // 'pending' | 'approved' | 'rejected'
-    createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
-    updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+    status    RequestStatus @default(pending)
+    createdAt DateTime      @default(now()) @map("created_at") @db.Timestamptz
+    updatedAt DateTime      @updatedAt @map("updated_at") @db.Timestamptz
 
     group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
     user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -185,14 +238,14 @@ model GroupJoinRequest {
 }
 
 model TeacherVerification {
-    id         BigInt   @id @default(autoincrement())
-    userId     String   @map("user_id") @db.Uuid
+    id         BigInt        @id @default(autoincrement())
+    userId     String        @map("user_id") @db.Uuid
     reason     String?
-    status     String   @default("pending") // 'pending' | 'approved' | 'rejected'
-    reviewedBy String?  @map("reviewed_by") @db.Uuid
-    reviewNote String?  @map("review_note")
-    createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
-    updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz
+    status     RequestStatus @default(pending)
+    reviewedBy String?       @map("reviewed_by") @db.Uuid
+    reviewNote String?       @map("review_note")
+    createdAt  DateTime      @default(now()) @map("created_at") @db.Timestamptz
+    updatedAt  DateTime      @updatedAt @map("updated_at") @db.Timestamptz
 
     user     User  @relation("TeacherRequester", fields: [userId], references: [id], onDelete: Cascade)
     reviewer User? @relation("VerificationReviewer", fields: [reviewedBy], references: [id], onDelete: SetNull)

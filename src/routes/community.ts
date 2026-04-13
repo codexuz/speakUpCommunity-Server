@@ -6,12 +6,20 @@ const router = Router();
 
 router.use(authenticateRequest);
 
-const INCLUDE_SPEAKING = {
-  student: { select: { id: true, fullName: true, username: true, avatarUrl: true } },
-  question: { select: { qText: true, part: true } },
+function getCefrLevel(score: number): string {
+  if (score <= 37) return 'A2';
+  if (score <= 50) return 'B1';
+  if (score <= 64) return 'B2';
+  return 'C1';
+}
+
+const INCLUDE_SESSION = {
+  user: { select: { id: true, fullName: true, username: true, avatarUrl: true } },
+  test: { select: { id: true, title: true, description: true } },
+  _count: { select: { responses: true, reviews: true, comments: true } },
 };
 
-// GET /api/community/feed — community feed with strategy + pagination
+// GET /api/community/feed — community feed with strategy + pagination (session-based)
 router.get('/feed', async (req: Request, res: Response) => {
   try {
     const auth = (req as AuthenticatedRequest).auth!;
@@ -21,16 +29,15 @@ router.get('/feed', async (req: Request, res: Response) => {
     const offset = (page - 1) * limit;
 
     const baseWhere = { visibility: 'community' as const };
-    let responses: any[];
+    let sessions: any[];
     let total: number;
 
     switch (strategy) {
       case 'trending': {
-        // Trending: most engagement in last 7 days
         const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
         const trendingWhere = { ...baseWhere, createdAt: { gte: weekAgo } };
-        total = await prisma.response.count({ where: trendingWhere });
-        responses = await prisma.response.findMany({
+        total = await prisma.testSession.count({ where: trendingWhere });
+        sessions = await prisma.testSession.findMany({
           where: trendingWhere,
           orderBy: [
             { likes: 'desc' },
@@ -39,15 +46,14 @@ router.get('/feed', async (req: Request, res: Response) => {
           ],
           skip: offset,
           take: limit,
-          include: INCLUDE_SPEAKING,
+          include: INCLUDE_SESSION,
         });
         break;
       }
 
       case 'top': {
-        // Top: highest average score, all time
-        total = await prisma.response.count({ where: baseWhere });
-        responses = await prisma.response.findMany({
+        total = await prisma.testSession.count({ where: baseWhere });
+        sessions = await prisma.testSession.findMany({
           where: baseWhere,
           orderBy: [
             { scoreAvg: { sort: 'desc', nulls: 'last' } },
@@ -55,37 +61,37 @@ router.get('/feed', async (req: Request, res: Response) => {
           ],
           skip: offset,
           take: limit,
-          include: INCLUDE_SPEAKING,
+          include: INCLUDE_SESSION,
         });
         break;
       }
 
       default: {
-        // Latest
-        total = await prisma.response.count({ where: baseWhere });
-        responses = await prisma.response.findMany({
+        total = await prisma.testSession.count({ where: baseWhere });
+        sessions = await prisma.testSession.findMany({
           where: baseWhere,
           orderBy: { createdAt: 'desc' },
           skip: offset,
           take: limit,
-          include: INCLUDE_SPEAKING,
+          include: INCLUDE_SESSION,
         });
         break;
       }
     }
 
-    // Check which ones the current user has liked
-    const responseIds = responses.map((r: any) => r.id);
+    // Check which sessions the current user has liked
+    const sessionIds = sessions.map((s: any) => s.id);
     const userLikes = await prisma.like.findMany({
-      where: { responseId: { in: responseIds }, userId: auth.userId },
-      select: { responseId: true },
+      where: { sessionId: { in: sessionIds }, userId: auth.userId },
+      select: { sessionId: true },
     });
-    const likedSet = new Set(userLikes.map((l:any) => l.responseId.toString()));
+    const likedSet = new Set(userLikes.map((l: any) => l.sessionId.toString()));
 
-    const data = responses.map((r: any) => ({
-      ...r,
-      id: r.id.toString(),
-      isLiked: likedSet.has(r.id.toString()),
+    const data = sessions.map((s: any) => ({
+      ...s,
+      id: s.id.toString(),
+      isLiked: likedSet.has(s.id.toString()),
+      cefrLevel: s.scoreAvg != null ? getCefrLevel(Math.round(s.scoreAvg)) : null,
     }));
 
     res.json({
