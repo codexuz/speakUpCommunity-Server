@@ -95,11 +95,14 @@ router.post('/login', async (req: Request, res: Response) => {
 // POST /api/auth/register
 router.post('/register', async (req: Request, res: Response) => {
   try {
-    const { username, fullName, password, gender, region, avatarUrl } = req.body;
+    const { username, fullName, password, gender, region, avatarUrl, role } = req.body;
     if (!username || !fullName || !password) {
       res.status(400).json({ error: 'Username, fullName, and password are required' });
       return;
     }
+
+    const validRoles = ['student', 'teacher'];
+    const userRole = validRoles.includes(role) ? role : 'student';
 
     const existing = await prisma.user.findUnique({ where: { username } });
     if (existing) {
@@ -112,7 +115,7 @@ router.post('/register', async (req: Request, res: Response) => {
         username,
         fullName,
         password: await hashPassword(password),
-        role: 'student',
+        role: userRole,
         gender,
         region,
         avatarUrl,
