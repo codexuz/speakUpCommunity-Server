@@ -13,6 +13,32 @@ const headers = (token: string) => ({
 
 ---
 
+## Recent Updates
+
+- **Session-based architecture** — All speaking data is now grouped into `TestSession`. Reviews, likes, and comments are attached to sessions, not individual responses.
+- **CEFR scoring (0–75)** — Reviews use a 0–75 scale with automatic CEFR level mapping (A2/B1/B2/C1).
+- **Database enums** — `UserRole`, `Visibility`, `GroupRole`, and `RequestStatus` are now PostgreSQL enums instead of plain strings.
+- **Register with role** — Registration now accepts an optional `role` field (`"student"` or `"teacher"`, defaults to `"student"`).
+- **Community feed returns sessions** — Feed, group submissions, and pending reviews all return `TestSession[]` with `cefrLevel`.
+- **Likes & comments on sessions** — Endpoints moved from `/speaking/:id/like` to `/speaking/sessions/:sessionId/like` (same for comments).
+
+### Expo Migration Checklist
+
+> **What to update in your Expo / React Native client:**
+
+1. **Types** — Replace `SpeakingResponse` list usage with `TestSession`. Add `TestSession` interface. Update `Review` and `Comment` to use `sessionId` instead of `responseId`. Rename `Session` → `AuthSession`.
+2. **Submit audio flow** — First question: send `testId` in FormData to create a session. Subsequent questions: send the returned `sessionId`. Remove old `visibility`/`groupId` from individual response handling — these now live on the session.
+3. **My submissions screen** — `GET /speaking/my` now returns `TestSession[]` (not responses). Render as a list of test sessions, tap to expand responses via `GET /speaking/sessions/:sessionId`.
+4. **Pending reviews screen** — `GET /speaking/pending` returns `TestSession[]`. Navigate to session detail, not individual response.
+5. **Likes** — Change `POST /speaking/:id/like` → `POST /speaking/sessions/:sessionId/like` (same for `DELETE`).
+6. **Comments** — Change `POST /speaking/:id/comment` → `POST /speaking/sessions/:sessionId/comment`. Change `GET /speaking/:id/comments` → `GET /speaking/sessions/:sessionId/comments`.
+7. **Reviews** — `POST /reviews/:sessionId` now expects `score: 0–75` (was 0–9). Response includes `cefrLevel`. Update score input UI (slider/picker range).
+8. **Community feed** — Feed items are now `TestSession` objects. Update card component to show `cefrLevel`, `test.title`, `user`, `_count.responses`.
+9. **Group submissions** — `GET /groups/:id/submissions` returns `TestSession[]` with `cefrLevel`. Update list rendering.
+10. **Register** — Add optional `role` picker (`"student"` | `"teacher"`) to registration form.
+
+---
+
 ## Table of Contents
 
 - [TypeScript Types](#typescript-types)
@@ -215,6 +241,7 @@ const register = async (data: {
   username: string;
   fullName: string;
   password: string;
+  role?: "student" | "teacher"; // default: "student"
   gender?: string;
   region?: string;
   avatarUrl?: string;
