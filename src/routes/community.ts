@@ -80,7 +80,7 @@ router.get('/feed', async (req: Request, res: Response) => {
       where: { responseId: { in: responseIds }, userId: auth.userId },
       select: { responseId: true },
     });
-    const likedSet = new Set(userLikes.map((l) => l.responseId.toString()));
+    const likedSet = new Set(userLikes.map((l:any) => l.responseId.toString()));
 
     const data = responses.map((r: any) => ({
       ...r,

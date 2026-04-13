@@ -1,4 +1,6 @@
 import { Request, Response, Router } from 'express';
+import multer from 'multer';
+import { v4 as uuidv4 } from 'uuid';
 import {
   AuthenticatedRequest,
   authenticateRequest,
@@ -13,6 +15,7 @@ import {
   verifyPassword,
 } from '../middleware/auth';
 import prisma from '../prisma';
+import { uploadImage } from '../services/minio';
 
 const router = Router();
 
@@ -21,6 +24,7 @@ function serializeUser(user: {
   username: string;
   fullName: string;
   role: string;
+  verifiedTeacher: boolean;
   avatarUrl: string | null;
   gender: string | null;
   region: string | null;
@@ -30,6 +34,7 @@ function serializeUser(user: {
     username: user.username,
     fullName: user.fullName,
     role: user.role,
+    verifiedTeacher: user.verifiedTeacher,
     avatarUrl: user.avatarUrl,
     gender: user.gender,
     region: user.region,
@@ -208,6 +213,64 @@ router.put('/push-token', authenticateRequest, async (req: Request, res: Respons
     });
 
     res.json({ success: true });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// PUT /api/auth/profile — update current user's profile
+router.put('/profile', authenticateRequest, async (req: Request, res: Response) => {
+  try {
+    const auth = (req as AuthenticatedRequest).auth!;
+    const { fullName, gender, region } = req.body;
+
+    const user = await prisma.user.update({
+      where: { id: auth.userId },
+      data: {
+        ...(fullName !== undefined && { fullName }),
+        ...(gender !== undefined && { gender }),
+        ...(region !== undefined && { region }),
+      },
+    });
+
+    res.json(serializeUser(user));
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// PUT /api/auth/avatar — upload/update current user's avatar
+const avatarUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image files are allowed'));
+    }
+  },
+});
+
+router.put('/avatar', authenticateRequest, avatarUpload.single('avatar'), async (req: Request, res: Response) => {
+  try {
+    const auth = (req as AuthenticatedRequest).auth!;
+    const file = req.file;
+    if (!file) {
+      res.status(400).json({ error: 'avatar file is required' });
+      return;
+    }
+
+    const ext = file.originalname.split('.').pop() || 'jpg';
+    const fileName = `avatars/users/${auth.userId}-${uuidv4()}.${ext}`;
+    const avatarUrl = await uploadImage(fileName, file.buffer, file.mimetype);
+
+    const user = await prisma.user.update({
+      where: { id: auth.userId },
+      data: { avatarUrl },
+    });
+
+    res.json(serializeUser(user));
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }

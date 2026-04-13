@@ -12,6 +12,7 @@ import communityRoutes from './routes/community';
 import groupsRoutes from './routes/groups';
 import reviewsRoutes from './routes/reviews';
 import speakingRoutes from './routes/speaking';
+import teacherVerificationRoutes from './routes/teacherVerification';
 import testsRoutes from './routes/tests';
 import { ensureBucket } from './services/minio';
 import './workers/audio.worker';
@@ -51,6 +52,7 @@ app.use(defaultLimiter);
 
 app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/tests', testsRoutes);
+app.use('/api/teacher-verification', teacherVerificationRoutes);
 app.use('/api/speaking', speakingRoutes);
 app.use('/api/reviews', reviewsRoutes);
 app.use('/api/groups', groupsRoutes);

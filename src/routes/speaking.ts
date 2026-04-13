@@ -160,8 +160,8 @@ router.post(
         });
 
         const otherMemberIds = members
-          .map((m) => m.userId)
-          .filter((id) => id !== auth.userId);
+          .map((m: any) => m.userId)
+          .filter((id: any) => id !== auth.userId);
 
         sseManager.sendToUsers(otherMemberIds, 'new-speaking', {
           id: response.id.toString(),
@@ -171,10 +171,10 @@ router.post(
 
         const teacherTokens = members
           .filter(
-            (m) =>
+            (m: any) =>
               m.userId !== auth.userId && m.user.pushToken,
           )
-          .map((m) => m.user.pushToken!)
+          .map((m: any) => m.user.pushToken!)
           .filter(Boolean);
 
         if (teacherTokens.length > 0) {

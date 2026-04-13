@@ -1,6 +1,9 @@
 import { Request, Response, Router } from 'express';
+import multer from 'multer';
+import { v4 as uuidv4 } from 'uuid';
 import { AuthenticatedRequest, authenticateRequest } from '../middleware/auth';
 import prisma from '../prisma';
+import { uploadImage } from '../services/minio';
 import { sseManager } from '../services/sse';
 
 const router = Router();
@@ -240,10 +243,71 @@ router.get('/:id/submissions', async (req: Request, res: Response) => {
 
 // ---------- Group CRUD ----------
 
-// POST /api/groups — create group (creator becomes owner)
+// GET /api/groups/search?q=name — search groups by name (for students to discover)
+router.get('/search', async (req: Request, res: Response) => {
+  try {
+    const q = (req.query.q as string || '').trim();
+    if (!q) {
+      res.status(400).json({ error: 'q query parameter is required' });
+      return;
+    }
+
+    const auth = (req as AuthenticatedRequest).auth!;
+    const groups = await prisma.group.findMany({
+      where: { name: { contains: q, mode: 'insensitive' } },
+      include: {
+        creator: { select: { fullName: true, avatarUrl: true } },
+        _count: { select: { members: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+    });
+
+    // Mark whether the user is already a member or has a pending request
+    const groupIds = groups.map((g) => g.id);
+    const [memberships, joinRequests] = await Promise.all([
+      prisma.groupMember.findMany({
+        where: { userId: auth.userId, groupId: { in: groupIds } },
+        select: { groupId: true },
+      }),
+      prisma.groupJoinRequest.findMany({
+        where: { userId: auth.userId, groupId: { in: groupIds }, status: 'pending' },
+        select: { groupId: true },
+      }),
+    ]);
+    const memberSet = new Set(memberships.map((m) => m.groupId));
+    const pendingSet = new Set(joinRequests.map((r) => r.groupId));
+
+    res.json(
+      groups.map((g) => ({
+        id: g.id,
+        name: g.name,
+        description: g.description,
+        createdAt: g.createdAt,
+        creator: g.creator,
+        memberCount: g._count.members,
+        status: memberSet.has(g.id)
+          ? 'member'
+          : pendingSet.has(g.id)
+            ? 'pending'
+            : 'none',
+      })),
+    );
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST /api/groups — create group (teacher/admin only, creator becomes owner)
 router.post('/', async (req: Request, res: Response) => {
   try {
     const auth = (req as AuthenticatedRequest).auth!;
+
+    if (auth.role !== 'teacher' && auth.role !== 'admin') {
+      res.status(403).json({ error: 'Only teachers/admins can create groups' });
+      return;
+    }
+
     const { name, description } = req.body;
 
     if (!name) {
@@ -331,6 +395,51 @@ router.post('/:id/regenerate-code', async (req: Request, res: Response) => {
     });
 
     res.json({ referralCode: newCode });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// PUT /api/groups/:id/avatar — upload/update group avatar (owner/teacher)
+const groupAvatarUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image files are allowed'));
+    }
+  },
+});
+
+router.put('/:id/avatar', groupAvatarUpload.single('avatar'), async (req: Request, res: Response) => {
+  try {
+    const auth = (req as AuthenticatedRequest).auth!;
+    const result = await requireGroupRole(
+      req.params.id as string,
+      auth.userId,
+      ['owner', 'teacher'],
+      res,
+    );
+    if (!result) return;
+
+    const file = req.file;
+    if (!file) {
+      res.status(400).json({ error: 'avatar file is required' });
+      return;
+    }
+
+    const ext = file.originalname.split('.').pop() || 'jpg';
+    const fileName = `avatars/groups/${result.group.id}-${uuidv4()}.${ext}`;
+    const avatarUrl = await uploadImage(fileName, file.buffer, file.mimetype);
+
+    const group = await prisma.group.update({
+      where: { id: result.group.id },
+      data: { avatarUrl },
+    });
+
+    res.json(group);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }

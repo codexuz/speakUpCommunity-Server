@@ -9,24 +9,27 @@ datasource db {
 }
 
 model User {
-    id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-    username  String   @unique
-    fullName  String   @map("fullName")
-    password  String
-    role      String   @default("student")
-    gender    String?
-    region    String?
-    avatarUrl String?  @map("avatarUrl")
-    pushToken String?  @map("push_token")
-    createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+    id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+    username        String   @unique
+    fullName        String   @map("fullName")
+    password        String
+    role            String   @default("student")
+    verifiedTeacher Boolean  @default(false) @map("verified_teacher")
+    gender          String?
+    region          String?
+    avatarUrl       String?  @map("avatarUrl")
+    pushToken       String?  @map("push_token")
+    createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
 
-    responses    Response[]
-    groups       Group[]            @relation("CreatorGroups")
-    memberships  GroupMember[]
-    reviews      Review[]
-    likes        Like[]
-    comments     Comment[]
-    joinRequests GroupJoinRequest[]
+    responses             Response[]
+    groups                Group[]               @relation("CreatorGroups")
+    memberships           GroupMember[]
+    reviews               Review[]
+    likes                 Like[]
+    comments              Comment[]
+    joinRequests          GroupJoinRequest[]
+    teacherRequests       TeacherVerification[] @relation("TeacherRequester")
+    reviewedVerifications TeacherVerification[] @relation("VerificationReviewer")
 
     @@map("users")
 }
@@ -135,6 +138,7 @@ model Group {
     id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
     name         String
     description  String?
+    avatarUrl    String?  @map("avatar_url")
     createdById  String   @map("teacher_id") @db.Uuid
     referralCode String   @unique @map("referral_code")
     createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
@@ -178,4 +182,22 @@ model GroupJoinRequest {
     @@unique([groupId, userId])
     @@index([status])
     @@map("group_join_requests")
+}
+
+model TeacherVerification {
+    id         BigInt   @id @default(autoincrement())
+    userId     String   @map("user_id") @db.Uuid
+    reason     String?
+    status     String   @default("pending") // 'pending' | 'approved' | 'rejected'
+    reviewedBy String?  @map("reviewed_by") @db.Uuid
+    reviewNote String?  @map("review_note")
+    createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+    updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+    user     User  @relation("TeacherRequester", fields: [userId], references: [id], onDelete: Cascade)
+    reviewer User? @relation("VerificationReviewer", fields: [reviewedBy], references: [id], onDelete: SetNull)
+
+    @@index([userId])
+    @@index([status])
+    @@map("teacher_verifications")
 }

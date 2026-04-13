@@ -36,6 +36,17 @@ export async function deleteAudio(fileName: string): Promise<void> {
   await minioClient.removeObject(BUCKET, fileName);
 }
 
+export async function uploadImage(
+  fileName: string,
+  buffer: Buffer,
+  contentType: string,
+): Promise<string> {
+  await minioClient.putObject(BUCKET, fileName, buffer, buffer.length, {
+    'Content-Type': contentType,
+  });
+  return getAudioUrl(fileName);
+}
+
 export async function getAudioBuffer(fileName: string): Promise<Buffer> {
   const stream = await minioClient.getObject(BUCKET, fileName);
   const chunks: Buffer[] = [];
