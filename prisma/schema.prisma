@@ -60,11 +60,28 @@ model User {
     reviews               Review[]
     likes                 Like[]
     comments              Comment[]
+    following             UserFollow[]          @relation("UserFollowing")
+    followers             UserFollow[]          @relation("UserFollowers")
     joinRequests          GroupJoinRequest[]
     teacherRequests       TeacherVerification[] @relation("TeacherRequester")
     reviewedVerifications TeacherVerification[] @relation("VerificationReviewer")
 
     @@map("users")
+}
+
+model UserFollow {
+    id          BigInt   @id @default(autoincrement())
+    followerId  String   @map("follower_id") @db.Uuid
+    followingId String   @map("following_id") @db.Uuid
+    createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+    follower  User @relation("UserFollowing", fields: [followerId], references: [id], onDelete: Cascade)
+    following User @relation("UserFollowers", fields: [followingId], references: [id], onDelete: Cascade)
+
+    @@unique([followerId, followingId])
+    @@index([followerId])
+    @@index([followingId])
+    @@map("user_follows")
 }
 
 model Test {

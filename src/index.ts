@@ -14,6 +14,7 @@ import reviewsRoutes from './routes/reviews';
 import speakingRoutes from './routes/speaking';
 import teacherVerificationRoutes from './routes/teacherVerification';
 import testsRoutes from './routes/tests';
+import usersRoutes from './routes/users';
 import { ensureBucket } from './services/minio';
 import './workers/audio.worker';
 
@@ -58,6 +59,7 @@ app.use('/api/reviews', reviewsRoutes);
 app.use('/api/groups', groupsRoutes);
 app.use('/api/community', communityRoutes);
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/users', usersRoutes);
 
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok' });

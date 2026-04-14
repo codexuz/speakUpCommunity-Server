@@ -44,6 +44,7 @@ const headers = (token: string) => ({
 - [TypeScript Types](#typescript-types)
 - [CEFR Scoring](#cefr-scoring)
 - [Auth](#auth)
+- [Users & Follows](#users--follows)
 - [Tests & Questions](#tests--questions)
 - [Speaking (Test Sessions)](#speaking-test-sessions)
 - [Reviews (Session-based)](#reviews-session-based)
@@ -348,6 +349,89 @@ const revokeSession = async (token: string, sessionId: string) => {
     headers: headers(token),
   });
   return res.json(); // { success: true }
+};
+```
+
+---
+
+## Users & Follows
+
+### Get User Profile + Follow Status
+
+```ts
+const getUserProfile = async (token: string, userId: string) => {
+  const res = await fetch(`${BASE_URL}/users/${userId}`, {
+    headers: headers(token),
+  });
+  return res.json();
+  // {
+  //   user: User,
+  //   stats: { followers: number; following: number },
+  //   relationship: { isMe: boolean; isFollowing: boolean; followsMe: boolean }
+  // }
+};
+```
+
+### Follow User
+
+```ts
+const followUser = async (token: string, userId: string) => {
+  const res = await fetch(`${BASE_URL}/users/${userId}/follow`, {
+    method: "POST",
+    headers: headers(token),
+  });
+  return res.json(); // { success: true }
+};
+```
+
+### Unfollow User
+
+```ts
+const unfollowUser = async (token: string, userId: string) => {
+  const res = await fetch(`${BASE_URL}/users/${userId}/follow`, {
+    method: "DELETE",
+    headers: headers(token),
+  });
+  return res.json(); // { success: true }
+};
+```
+
+### List Followers
+
+```ts
+const getFollowers = async (
+  token: string,
+  userId: string,
+  page = 1,
+  limit = 20
+) => {
+  const res = await fetch(
+    `${BASE_URL}/users/${userId}/followers?page=${page}&limit=${limit}`,
+    { headers: headers(token) }
+  );
+  return res.json();
+  // {
+  //   data: Array<Pick<User, "id" | "username" | "fullName" | "avatarUrl" | "role" | "verifiedTeacher"> & { isFollowing: boolean }>,
+  //   pagination: Pagination
+  // }
+};
+```
+
+### List Following
+
+```ts
+const getFollowing = async (
+  token: string,
+  userId: string,
+  page = 1,
+  limit = 20
+) => {
+  const res = await fetch(
+    `${BASE_URL}/users/${userId}/following?page=${page}&limit=${limit}`,
+    { headers: headers(token) }
+  );
+  return res.json();
+  // same response shape as getFollowers
 };
 ```
 
