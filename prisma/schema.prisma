@@ -40,6 +40,16 @@ enum RequestStatus {
     @@map("request_status")
 }
 
+enum MessageType {
+    text
+    image
+    video
+    file
+    system
+
+    @@map("message_type")
+}
+
 model User {
     id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
     username        String   @unique
@@ -65,6 +75,7 @@ model User {
     joinRequests          GroupJoinRequest[]
     teacherRequests       TeacherVerification[] @relation("TeacherRequester")
     reviewedVerifications TeacherVerification[] @relation("VerificationReviewer")
+    groupMessages         GroupMessage[]
 
     @@map("users")
 }
@@ -217,6 +228,7 @@ model Group {
     members      GroupMember[]
     sessions     TestSession[]
     joinRequests GroupJoinRequest[]
+    messages     GroupMessage[]
 
     @@map("groups")
 }
@@ -270,4 +282,42 @@ model TeacherVerification {
     @@index([userId])
     @@index([status])
     @@map("teacher_verifications")
+}
+
+model GroupMessage {
+    id        BigInt      @id @default(autoincrement())
+    groupId   String      @map("group_id") @db.Uuid
+    senderId  String      @map("sender_id") @db.Uuid
+    type      MessageType @default(text)
+    text      String?
+    replyToId BigInt?     @map("reply_to_id")
+    isEdited  Boolean     @default(false) @map("is_edited")
+    isDeleted Boolean     @default(false) @map("is_deleted")
+    createdAt DateTime    @default(now()) @map("created_at") @db.Timestamptz
+    updatedAt DateTime    @updatedAt @map("updated_at") @db.Timestamptz
+
+    group       Group                    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+    sender      User                     @relation(fields: [senderId], references: [id], onDelete: Cascade)
+    replyTo     GroupMessage?            @relation("MessageReplies", fields: [replyToId], references: [id], onDelete: SetNull)
+    replies     GroupMessage[]           @relation("MessageReplies")
+    attachments GroupMessageAttachment[]
+
+    @@index([groupId, createdAt])
+    @@index([senderId])
+    @@map("group_messages")
+}
+
+model GroupMessageAttachment {
+    id        BigInt   @id @default(autoincrement())
+    messageId BigInt   @map("message_id")
+    url       String
+    fileName  String   @map("file_name")
+    fileSize  Int      @map("file_size")
+    mimeType  String   @map("mime_type")
+    createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+    message GroupMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+    @@index([messageId])
+    @@map("group_message_attachments")
 }

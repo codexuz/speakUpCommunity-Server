@@ -9,6 +9,7 @@ import { authLimiter, defaultLimiter } from './middleware/rateLimiter';
 import analyticsRoutes from './routes/analytics';
 import authRoutes from './routes/auth';
 import communityRoutes from './routes/community';
+import groupChatRoutes from './routes/groupChat';
 import groupsRoutes from './routes/groups';
 import reviewsRoutes from './routes/reviews';
 import speakingRoutes from './routes/speaking';
@@ -16,6 +17,7 @@ import teacherVerificationRoutes from './routes/teacherVerification';
 import testsRoutes from './routes/tests';
 import usersRoutes from './routes/users';
 import { ensureBucket } from './services/minio';
+import { initChatSocket } from './services/chatSocket';
 import './workers/audio.worker';
 
 // BigInt JSON serialization support
@@ -57,6 +59,7 @@ app.use('/api/teacher-verification', teacherVerificationRoutes);
 app.use('/api/speaking', speakingRoutes);
 app.use('/api/reviews', reviewsRoutes);
 app.use('/api/groups', groupsRoutes);
+app.use('/api/group-chat', groupChatRoutes);
 app.use('/api/community', communityRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/users', usersRoutes);
@@ -84,6 +87,9 @@ async function start() {
   } catch (err) {
     console.warn('MinIO not available — file uploads will fail:', (err as Error).message);
   }
+
+  initChatSocket(server);
+  console.log('Socket.IO chat server ready at /ws/chat');
 
   server.listen(Number(PORT), HOST, () => {
     const protocol = useHttps ? 'https' : 'http';
