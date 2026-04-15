@@ -564,6 +564,80 @@ router.post('/sessions/:sessionId/comment', async (req: Request, res: Response) 
   }
 });
 
+// PUT /api/speaking/comments/:commentId — edit comment (author only)
+router.put('/comments/:commentId', async (req: Request, res: Response) => {
+  try {
+    const auth = (req as AuthenticatedRequest).auth!;
+    const commentId = BigInt(req.params.commentId as string);
+    const { text } = req.body;
+
+    if (!text?.trim()) {
+      res.status(400).json({ error: 'text is required' });
+      return;
+    }
+
+    const existing = await prisma.comment.findUnique({
+      where: { id: commentId },
+      select: { userId: true },
+    });
+
+    if (!existing) {
+      res.status(404).json({ error: 'Comment not found' });
+      return;
+    }
+    if (existing.userId !== auth.userId) {
+      res.status(403).json({ error: 'You can only edit your own comments' });
+      return;
+    }
+
+    const updated = await prisma.comment.update({
+      where: { id: commentId },
+      data: { text: text.trim() },
+      include: {
+        user: { select: { id: true, fullName: true, username: true, avatarUrl: true } },
+      },
+    });
+
+    res.json({ ...updated, id: updated.id.toString() });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// DELETE /api/speaking/comments/:commentId — delete comment (author only)
+router.delete('/comments/:commentId', async (req: Request, res: Response) => {
+  try {
+    const auth = (req as AuthenticatedRequest).auth!;
+    const commentId = BigInt(req.params.commentId as string);
+
+    const existing = await prisma.comment.findUnique({
+      where: { id: commentId },
+      select: { userId: true, sessionId: true },
+    });
+
+    if (!existing) {
+      res.status(404).json({ error: 'Comment not found' });
+      return;
+    }
+    if (existing.userId !== auth.userId) {
+      res.status(403).json({ error: 'You can only delete your own comments' });
+      return;
+    }
+
+    await prisma.$transaction([
+      prisma.comment.delete({ where: { id: commentId } }),
+      prisma.testSession.update({
+        where: { id: existing.sessionId },
+        data: { commentsCount: { decrement: 1 } },
+      }),
+    ]);
+
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // GET /api/speaking/sessions/:sessionId/comments
 router.get('/sessions/:sessionId/comments', async (req: Request, res: Response) => {
   try {
