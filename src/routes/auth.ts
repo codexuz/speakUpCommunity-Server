@@ -22,6 +22,7 @@ const router = Router();
 function serializeUser(user: {
   id: string;
   username: string;
+  phone: string | null;
   fullName: string;
   role: string;
   verifiedTeacher: boolean;
@@ -32,6 +33,7 @@ function serializeUser(user: {
   return {
     id: user.id,
     username: user.username,
+    phone: user.phone,
     fullName: user.fullName,
     role: user.role,
     verifiedTeacher: user.verifiedTeacher,
@@ -44,13 +46,20 @@ function serializeUser(user: {
 // POST /api/auth/login
 router.post('/login', async (req: Request, res: Response) => {
   try {
-    const { username, password } = req.body;
-    if (!username || !password) {
-      res.status(400).json({ error: 'Username and password are required' });
+    const { login, password } = req.body;
+    if (!login || !password) {
+      res.status(400).json({ error: 'Username/phone and password are required' });
       return;
     }
 
-    const user = await prisma.user.findUnique({ where: { username } });
+    const user = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { username: login },
+          { phone: login },
+        ],
+      },
+    });
     if (!user) {
       res.status(401).json({ error: 'Invalid credentials' });
       return;
@@ -95,7 +104,7 @@ router.post('/login', async (req: Request, res: Response) => {
 // POST /api/auth/register
 router.post('/register', async (req: Request, res: Response) => {
   try {
-    const { username, fullName, password, gender, region, avatarUrl, role } = req.body;
+    const { username, phone, fullName, password, gender, region, avatarUrl, role } = req.body;
     if (!username || !fullName || !password) {
       res.status(400).json({ error: 'Username, fullName, and password are required' });
       return;
@@ -104,15 +113,24 @@ router.post('/register', async (req: Request, res: Response) => {
     const validRoles = ['student', 'teacher'];
     const userRole = validRoles.includes(role) ? role : 'student';
 
-    const existing = await prisma.user.findUnique({ where: { username } });
+    const existing = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { username },
+          ...(phone ? [{ phone }] : []),
+        ],
+      },
+    });
     if (existing) {
-      res.status(409).json({ error: 'Username already taken' });
+      const field = existing.username === username ? 'Username' : 'Phone';
+      res.status(409).json({ error: `${field} already taken` });
       return;
     }
 
     const user = await prisma.user.create({
       data: {
         username,
+        phone: phone || null,
         fullName,
         password: await hashPassword(password),
         role: userRole,
@@ -225,7 +243,17 @@ router.put('/push-token', authenticateRequest, async (req: Request, res: Respons
 router.put('/profile', authenticateRequest, async (req: Request, res: Response) => {
   try {
     const auth = (req as AuthenticatedRequest).auth!;
-    const { fullName, gender, region } = req.body;
+    const { fullName, gender, region, phone } = req.body;
+
+    if (phone !== undefined && phone !== null) {
+      const phoneTaken = await prisma.user.findFirst({
+        where: { phone, id: { not: auth.userId } },
+      });
+      if (phoneTaken) {
+        res.status(409).json({ error: 'Phone already taken' });
+        return;
+      }
+    }
 
     const user = await prisma.user.update({
       where: { id: auth.userId },
@@ -233,6 +261,7 @@ router.put('/profile', authenticateRequest, async (req: Request, res: Response) 
         ...(fullName !== undefined && { fullName }),
         ...(gender !== undefined && { gender }),
         ...(region !== undefined && { region }),
+        ...(phone !== undefined && { phone: phone || null }),
       },
     });
 
