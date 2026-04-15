@@ -221,12 +221,16 @@ router.post(
           where: { id: groupId },
           select: { isGlobal: true },
         });
-        if (group && !group.isGlobal) {
-          const membership = await prisma.groupMember.findUnique({
-            where: { groupId_userId: { groupId, userId: auth.userId } },
-          });
-          if (membership) {
+        if (group) {
+          if (group.isGlobal) {
             resolvedGroupId = groupId;
+          } else {
+            const membership = await prisma.groupMember.findUnique({
+              where: { groupId_userId: { groupId, userId: auth.userId } },
+            });
+            if (membership) {
+              resolvedGroupId = groupId;
+            }
           }
         }
       }
