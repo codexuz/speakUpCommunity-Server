@@ -52,14 +52,10 @@ router.post('/login', async (req: Request, res: Response) => {
       return;
     }
 
-    const user = await prisma.user.findFirst({
-      where: {
-        OR: [
-          { username: login },
-          { phone: login },
-        ],
-      },
-    });
+    let user = await prisma.user.findUnique({ where: { username: login } });
+    if (!user) {
+      user = await prisma.user.findUnique({ where: { phone: login } });
+    }
     if (!user) {
       res.status(401).json({ error: 'Invalid credentials' });
       return;
