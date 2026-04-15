@@ -448,6 +448,37 @@ router.delete('/:id', async (req: Request, res: Response) => {
   }
 });
 
+// DELETE /api/speaking/sessions/:sessionId — delete session with all its responses
+router.delete('/sessions/:sessionId', async (req: Request, res: Response) => {
+  try {
+    const auth = (req as AuthenticatedRequest).auth!;
+    const sessionId = BigInt(req.params.sessionId as string);
+
+    const session = await prisma.testSession.findUnique({
+      where: { id: sessionId },
+      select: { userId: true },
+    });
+
+    if (!session) {
+      res.status(404).json({ error: 'Session not found' });
+      return;
+    }
+    if (auth.role === 'student' && session.userId !== auth.userId) {
+      res.status(403).json({ error: "Cannot delete others' sessions" });
+      return;
+    }
+
+    await prisma.$transaction([
+      prisma.response.deleteMany({ where: { sessionId } }),
+      prisma.testSession.delete({ where: { id: sessionId } }),
+    ]);
+
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // ---------- Likes (session-based) ----------
 
 // POST /api/speaking/sessions/:sessionId/like
