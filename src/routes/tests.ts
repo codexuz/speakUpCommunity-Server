@@ -169,7 +169,8 @@ router.post('/:testId/questions', questionImageUpload.single('image'), async (re
       return;
     }
     const testId = parseInt(req.params.testId as string);
-    const { qText, part, audioUrl, speakingTimer, prepTimer } = req.body;
+    const body = req.body || {};
+    const { qText, part, audioUrl, speakingTimer, prepTimer } = body;
     if (!qText || !part) {
       res.status(400).json({ error: 'qText and part are required' });
       return;
@@ -188,9 +189,9 @@ router.post('/:testId/questions', questionImageUpload.single('image'), async (re
         qText,
         part,
         image: imageUrl,
-        audioUrl,
-        ...(speakingTimer !== undefined && { speakingTimer }),
-        ...(prepTimer !== undefined && { prepTimer }),
+        audioUrl: audioUrl || undefined,
+        ...(speakingTimer !== undefined && { speakingTimer: parseInt(speakingTimer) }),
+        ...(prepTimer !== undefined && { prepTimer: parseInt(prepTimer) }),
       },
     });
     res.status(201).json(question);
@@ -212,7 +213,8 @@ router.put('/questions/:id', questionImageUpload.single('image'), async (req: Re
       return;
     }
     const id = parseInt(req.params.id as string);
-    const { qText, part, audioUrl, speakingTimer, prepTimer } = req.body;
+    const body = req.body || {};
+    const { qText, part, audioUrl, speakingTimer, prepTimer } = body;
 
     let imageUrl: string | undefined;
     if (req.file) {
@@ -227,9 +229,9 @@ router.put('/questions/:id', questionImageUpload.single('image'), async (req: Re
         ...(qText !== undefined && { qText }),
         ...(part !== undefined && { part }),
         ...(imageUrl !== undefined && { image: imageUrl }),
-        ...(audioUrl !== undefined && { audioUrl }),
-        ...(speakingTimer !== undefined && { speakingTimer }),
-        ...(prepTimer !== undefined && { prepTimer }),
+        ...(audioUrl !== undefined && { audioUrl: audioUrl || null }),
+        ...(speakingTimer !== undefined && { speakingTimer: parseInt(speakingTimer) }),
+        ...(prepTimer !== undefined && { prepTimer: parseInt(prepTimer) }),
       },
     });
     res.json(question);
