@@ -140,6 +140,7 @@ model Question {
     qText         String   @map("q_text")
     part          String
     image         String?
+    audioUrl      String?  @map("audio_url")
     speakingTimer Int      @default(30) @map("speaking_timer")
     prepTimer     Int      @default(5) @map("prep_timer")
     createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz

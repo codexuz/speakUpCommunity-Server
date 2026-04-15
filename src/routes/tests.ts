@@ -154,7 +154,7 @@ router.post('/:testId/questions', async (req: Request, res: Response) => {
       return;
     }
     const testId = parseInt(req.params.testId as string);
-    const { qText, part, image, speakingTimer, prepTimer } = req.body;
+    const { qText, part, image, audioUrl, speakingTimer, prepTimer } = req.body;
     if (!qText || !part) {
       res.status(400).json({ error: 'qText and part are required' });
       return;
@@ -165,6 +165,7 @@ router.post('/:testId/questions', async (req: Request, res: Response) => {
         qText,
         part,
         image,
+        audioUrl,
         ...(speakingTimer !== undefined && { speakingTimer }),
         ...(prepTimer !== undefined && { prepTimer }),
       },
@@ -188,13 +189,14 @@ router.put('/questions/:id', async (req: Request, res: Response) => {
       return;
     }
     const id = parseInt(req.params.id as string);
-    const { qText, part, image, speakingTimer, prepTimer } = req.body;
+    const { qText, part, image, audioUrl, speakingTimer, prepTimer } = req.body;
     const question = await prisma.question.update({
       where: { id },
       data: {
         ...(qText !== undefined && { qText }),
         ...(part !== undefined && { part }),
         ...(image !== undefined && { image }),
+        ...(audioUrl !== undefined && { audioUrl }),
         ...(speakingTimer !== undefined && { speakingTimer }),
         ...(prepTimer !== undefined && { prepTimer }),
       },
