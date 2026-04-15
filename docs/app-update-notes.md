@@ -46,9 +46,9 @@ Use `isGlobal` to conditionally show ads in non-global groups:
 ---
 
 
-## Reviews — Pending Sessions Endpoint
+## Reviews — My Groups Reviews
 
-`GET /api/reviews/my-groups` now returns **unreviewed sessions** from the teacher's groups instead of existing reviews.
+`GET /api/reviews/my-groups` returns **reviews on sessions** from students in the teacher's groups.
 
 ### Response
 
@@ -56,17 +56,20 @@ Use `isGlobal` to conditionally show ads in non-global groups:
 {
   "data": [
     {
-      "id": "123",
-      "testId": 1,
-      "userId": "...",
-      "visibility": "group",
-      "groupId": "...",
-      "scoreAvg": null,
+      "id": "456",
+      "score": 45,
+      "feedback": "Good fluency",
+      "cefrLevel": "B1",
       "createdAt": "...",
-      "test": { "id": 1, "title": "IELTS Part 2" },
-      "user": { "id": "...", "fullName": "...", "username": "...", "avatarUrl": "..." },
-      "group": { "id": "...", "name": "..." },
-      "_count": { "responses": 3 }
+      "reviewer": { "id": "...", "fullName": "...", "username": "...", "avatarUrl": "..." },
+      "session": {
+        "id": "123",
+        "groupId": "...",
+        "scoreAvg": 42.5,
+        "test": { "id": 1, "title": "IELTS Part 2" },
+        "user": { "id": "...", "fullName": "...", "username": "...", "avatarUrl": "..." },
+        "group": { "id": "...", "name": "..." }
+      }
     }
   ],
   "pagination": { "page": 1, "limit": 20, "total": 5, "totalPages": 1 }
@@ -74,6 +77,32 @@ Use `isGlobal` to conditionally show ads in non-global groups:
 ```
 
 Query params: `?page=1&limit=20`
+
+---
+
+## Speaking — Updates
+
+### Visibility update (endpoint changed)
+
+**Before (removed):** `PUT /api/speaking/:id`
+
+**After:** `PUT /api/speaking/sessions/:sessionId`
+
+```json
+{ "visibility": "private" | "group" | "community" }
+```
+
+### Pending sessions scoped to teacher's groups
+
+`GET /api/speaking/pending` now returns only unreviewed sessions from groups where the teacher is an owner or teacher. Response includes `group: { id, name }`.
+
+### Submission group validation
+
+`POST /api/speaking` now validates:
+
+1. If `groupId` is provided, the group must exist and **not be global** (`isGlobal: false`)
+2. The user must be a member of the group
+3. If validation fails, `groupId` is ignored and visibility `"group"` falls back to `"private"`
 
 ---
 

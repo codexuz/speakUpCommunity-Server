@@ -142,14 +142,31 @@ router.get('/sessions/:sessionId', async (req: Request, res: Response) => {
   }
 });
 
-// GET /api/speaking/pending — sessions without reviews (for teachers)
+// GET /api/speaking/pending — unreviewed sessions from the teacher's groups
 router.get('/pending', requireRole('teacher'), async (req: Request, res: Response) => {
   try {
+    const auth = (req as AuthenticatedRequest).auth!;
     const page = Math.max(1, parseInt(req.query.page as string) || 1);
     const limit = Math.min(50, Math.max(1, parseInt(req.query.limit as string) || 20));
     const offset = (page - 1) * limit;
 
-    const where = { reviews: { none: {} } };
+    // Find groups where the teacher is owner or teacher
+    const managedGroups = await prisma.groupMember.findMany({
+      where: { userId: auth.userId, role: { in: ['owner', 'teacher'] } },
+      select: { groupId: true },
+    });
+    const groupIds = managedGroups.map((m) => m.groupId);
+
+    if (groupIds.length === 0) {
+      res.json({ data: [], pagination: { page, limit, total: 0, totalPages: 0 } });
+      return;
+    }
+
+    const where = {
+      groupId: { in: groupIds },
+      reviews: { none: {} },
+    };
+
     const [sessions, total] = await Promise.all([
       prisma.testSession.findMany({
         where,
@@ -159,6 +176,7 @@ router.get('/pending', requireRole('teacher'), async (req: Request, res: Respons
         include: {
           user: { select: { id: true, fullName: true, username: true, avatarUrl: true } },
           test: { select: { id: true, title: true, description: true } },
+          group: { select: { id: true, name: true } },
           _count: { select: { responses: true } },
         },
       }),
@@ -196,6 +214,26 @@ router.post(
         ? visibility
         : 'private';
 
+      // Validate group membership if groupId provided
+      let resolvedGroupId: string | null = null;
+      if (groupId) {
+        const group = await prisma.group.findUnique({
+          where: { id: groupId },
+          select: { isGlobal: true },
+        });
+        if (group && !group.isGlobal) {
+          const membership = await prisma.groupMember.findUnique({
+            where: { groupId_userId: { groupId, userId: auth.userId } },
+          });
+          if (membership) {
+            resolvedGroupId = groupId;
+          }
+        }
+      }
+
+      // Force private if no valid group
+      const finalVisibility = resolvedGroupId ? vis : (vis === 'group' ? 'private' : vis);
+
       // Resolve or create a session
       let resolvedSessionId: bigint | null = null;
 
@@ -221,8 +259,8 @@ router.post(
           data: {
             testId: test.id,
             userId: auth.userId,
-            visibility: vis,
-            groupId: groupId || null,
+            visibility: finalVisibility,
+            groupId: resolvedGroupId,
           },
         });
         resolvedSessionId = session.id;
@@ -264,9 +302,9 @@ router.post(
       }
 
       // SSE + push notify group members
-      if (groupId) {
+      if (resolvedGroupId) {
         const members = await prisma.groupMember.findMany({
-          where: { groupId },
+          where: { groupId: resolvedGroupId },
           select: { userId: true, user: { select: { pushToken: true } } },
         });
 

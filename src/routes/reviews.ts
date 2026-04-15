@@ -128,32 +128,38 @@ router.get('/my-groups', async (req: Request, res: Response) => {
     }
 
     const where = {
-      session: {
-        groupId: { in: groupIds },
-        reviews: { none: {} },
-      },
+      session: { groupId: { in: groupIds } },
     };
 
-    const [sessions, total] = await Promise.all([
-      prisma.testSession.findMany({
-        where: where.session,
+    const [reviews, total] = await Promise.all([
+      prisma.review.findMany({
+        where,
         orderBy: { createdAt: 'desc' },
         skip: offset,
         take: limit,
         include: {
-          test: { select: { id: true, title: true } },
-          user: { select: { id: true, fullName: true, username: true, avatarUrl: true } },
-          group: { select: { id: true, name: true } },
-          _count: { select: { responses: true } },
+          reviewer: { select: { id: true, fullName: true, username: true, avatarUrl: true } },
+          session: {
+            select: {
+              id: true,
+              groupId: true,
+              scoreAvg: true,
+              test: { select: { id: true, title: true } },
+              user: { select: { id: true, fullName: true, username: true, avatarUrl: true } },
+              group: { select: { id: true, name: true } },
+            },
+          },
         },
       }),
-      prisma.testSession.count({ where: where.session }),
+      prisma.review.count({ where }),
     ]);
 
     res.json({
-      data: sessions.map((s: any) => ({
-        ...s,
-        id: s.id.toString(),
+      data: reviews.map((r: any) => ({
+        ...r,
+        id: r.id.toString(),
+        session: { ...r.session, id: r.session.id.toString() },
+        cefrLevel: getCefrLevel(r.score),
       })),
       pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
     });
