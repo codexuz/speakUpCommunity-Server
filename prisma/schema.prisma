@@ -222,6 +222,7 @@ model Group {
     avatarUrl    String?  @map("avatar_url")
     createdById  String   @map("teacher_id") @db.Uuid
     referralCode String   @unique @map("referral_code")
+    isGlobal     Boolean  @default(false) @map("is_global")
     createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
 
     creator      User               @relation("CreatorGroups", fields: [createdById], references: [id], onDelete: Cascade)
@@ -320,4 +321,17 @@ model GroupMessageAttachment {
 
     @@index([messageId])
     @@map("group_message_attachments")
+}
+
+model Ad {
+    id        Int      @id @default(autoincrement())
+    title     String
+    imageUrl  String   @map("image_url")
+    linkUrl   String?  @map("link_url")
+    isActive  Boolean  @default(true) @map("is_active")
+    createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+    updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+    @@index([isActive])
+    @@map("ads")
 }

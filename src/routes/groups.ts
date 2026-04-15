@@ -57,27 +57,45 @@ async function requireGroupRole(
 
 // ---------- List endpoints ----------
 
-// GET /api/groups/my — current user's groups
+// GET /api/groups/my — current user's groups + all global groups
 router.get('/my', async (req: Request, res: Response) => {
   try {
     const auth = (req as AuthenticatedRequest).auth!;
-    const memberships = await prisma.groupMember.findMany({
-      where: { userId: auth.userId },
-      include: {
-        group: {
-          include: { _count: { select: { members: true } } },
-        },
-      },
-      orderBy: { joinedAt: 'desc' },
-    });
 
-    res.json(
-      memberships.map((m: any) => ({
-        ...m.group,
-        member_count: m.group._count.members,
-        myRole: m.role,
-      })),
-    );
+    const [memberships, globalGroups] = await Promise.all([
+      prisma.groupMember.findMany({
+        where: { userId: auth.userId },
+        include: {
+          group: {
+            include: { _count: { select: { members: true } } },
+          },
+        },
+        orderBy: { joinedAt: 'desc' },
+      }),
+      prisma.group.findMany({
+        where: { isGlobal: true },
+        include: { _count: { select: { members: true } } },
+        orderBy: { createdAt: 'desc' },
+      }),
+    ]);
+
+    const joinedGroupIds = new Set(memberships.map((m) => m.group.id));
+
+    const joinedList = memberships.map((m: any) => ({
+      ...m.group,
+      member_count: m.group._count.members,
+      myRole: m.role,
+    }));
+
+    const globalNotJoined = globalGroups
+      .filter((g) => !joinedGroupIds.has(g.id))
+      .map((g: any) => ({
+        ...g,
+        member_count: g._count.members,
+        myRole: null,
+      }));
+
+    res.json([...joinedList, ...globalNotJoined]);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
@@ -156,7 +174,7 @@ router.get('/search', async (req: Request, res: Response) => {
 
     const auth = (req as AuthenticatedRequest).auth!;
     const groups = await prisma.group.findMany({
-      where: { name: { contains: q, mode: 'insensitive' } },
+      where: { name: { contains: q, mode: 'insensitive' }, isGlobal: false },
       include: {
         creator: { select: { fullName: true, avatarUrl: true } },
         _count: { select: { members: true } },
@@ -185,6 +203,7 @@ router.get('/search', async (req: Request, res: Response) => {
         id: g.id,
         name: g.name,
         description: g.description,
+        isGlobal: g.isGlobal,
         createdAt: g.createdAt,
         creator: g.creator,
         memberCount: g._count.members,
@@ -204,11 +223,6 @@ router.get('/search', async (req: Request, res: Response) => {
 router.get('/:id', async (req: Request, res: Response) => {
   try {
     const auth = (req as AuthenticatedRequest).auth!;
-    const membership = await getGroupMembership(req.params.id as string, auth.userId);
-    if (!membership) {
-      res.status(403).json({ error: 'You do not have access to this group' });
-      return;
-    }
 
     const group = await prisma.group.findUnique({
       where: { id: req.params.id as string },
@@ -222,7 +236,13 @@ router.get('/:id', async (req: Request, res: Response) => {
       return;
     }
 
-    res.json({ ...group, myRole: membership.role });
+    const membership = await getGroupMembership(req.params.id as string, auth.userId);
+    if (!membership && !group.isGlobal) {
+      res.status(403).json({ error: 'You do not have access to this group' });
+      return;
+    }
+
+    res.json({ ...group, myRole: membership?.role ?? null });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
@@ -309,18 +329,26 @@ router.post('/', async (req: Request, res: Response) => {
       return;
     }
 
-    const { name, description } = req.body;
+    const { name, description, isGlobal } = req.body;
 
     if (!name) {
       res.status(400).json({ error: 'name is required' });
       return;
     }
 
+    if (isGlobal && auth.role !== 'admin') {
+      const user = await prisma.user.findUnique({ where: { id: auth.userId }, select: { verifiedTeacher: true } });
+      if (!user?.verifiedTeacher) {
+        res.status(403).json({ error: 'Only verified teachers and admins can create global groups' });
+        return;
+      }
+    }
+
     const referralCode = generateReferralCode();
 
     const group = await prisma.$transaction(async (tx) => {
       const g = await tx.group.create({
-        data: { name, description, createdById: auth.userId, referralCode },
+        data: { name, description, createdById: auth.userId, referralCode, isGlobal: Boolean(isGlobal) },
       });
       await tx.groupMember.create({
         data: { groupId: g.id, userId: auth.userId, role: 'owner' },
@@ -475,6 +503,38 @@ router.post('/join', async (req: Request, res: Response) => {
 
     await prisma.groupMember.create({
       data: { groupId: group.id, userId: auth.userId, role: 'student' },
+    });
+
+    res.json(group);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST /api/groups/:id/join — join a global group directly (no code needed)
+router.post('/:id/join', async (req: Request, res: Response) => {
+  try {
+    const auth = (req as AuthenticatedRequest).auth!;
+    const groupId = req.params.id as string;
+
+    const group = await prisma.group.findUnique({ where: { id: groupId } });
+    if (!group) {
+      res.status(404).json({ error: 'Group not found' });
+      return;
+    }
+    if (!group.isGlobal) {
+      res.status(403).json({ error: 'This group is not public. Use a referral code or request to join.' });
+      return;
+    }
+
+    const existing = await getGroupMembership(groupId, auth.userId);
+    if (existing) {
+      res.status(409).json({ error: 'You are already a member of this group' });
+      return;
+    }
+
+    await prisma.groupMember.create({
+      data: { groupId, userId: auth.userId, role: 'student' },
     });
 
     res.json(group);

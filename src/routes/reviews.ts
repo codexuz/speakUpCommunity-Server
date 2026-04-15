@@ -107,6 +107,61 @@ router.post('/:sessionId', async (req: Request, res: Response) => {
   }
 });
 
+// GET /api/reviews/my-groups — reviews on sessions from students in the teacher's groups
+router.get('/my-groups', async (req: Request, res: Response) => {
+  try {
+    const auth = (req as AuthenticatedRequest).auth!;
+    const page = Math.max(1, parseInt(req.query.page as string) || 1);
+    const limit = Math.min(50, Math.max(1, parseInt(req.query.limit as string) || 20));
+    const offset = (page - 1) * limit;
+
+    // Find groups where the current user is owner or teacher
+    const managedGroups = await prisma.groupMember.findMany({
+      where: { userId: auth.userId, role: { in: ['owner', 'teacher'] } },
+      select: { groupId: true },
+    });
+    const groupIds = managedGroups.map((m) => m.groupId);
+
+    if (groupIds.length === 0) {
+      res.json({ data: [], pagination: { page, limit, total: 0, totalPages: 0 } });
+      return;
+    }
+
+    const where = {
+      session: {
+        groupId: { in: groupIds },
+        reviews: { none: {} },
+      },
+    };
+
+    const [sessions, total] = await Promise.all([
+      prisma.testSession.findMany({
+        where: where.session,
+        orderBy: { createdAt: 'desc' },
+        skip: offset,
+        take: limit,
+        include: {
+          test: { select: { id: true, title: true } },
+          user: { select: { id: true, fullName: true, username: true, avatarUrl: true } },
+          group: { select: { id: true, name: true } },
+          _count: { select: { responses: true } },
+        },
+      }),
+      prisma.testSession.count({ where: where.session }),
+    ]);
+
+    res.json({
+      data: sessions.map((s: any) => ({
+        ...s,
+        id: s.id.toString(),
+      })),
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // GET /api/reviews/:sessionId — all reviews for a session
 router.get('/:sessionId', async (req: Request, res: Response) => {
   try {

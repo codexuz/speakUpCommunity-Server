@@ -7,6 +7,7 @@ import https from 'https';
 
 import { authLimiter, defaultLimiter } from './middleware/rateLimiter';
 import analyticsRoutes from './routes/analytics';
+import adsRoutes from './routes/ads';
 import authRoutes from './routes/auth';
 import communityRoutes from './routes/community';
 import groupChatRoutes from './routes/groupChat';
@@ -62,6 +63,7 @@ app.use('/api/groups', groupsRoutes);
 app.use('/api/group-chat', groupChatRoutes);
 app.use('/api/community', communityRoutes);
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/ads', adsRoutes);
 app.use('/api/users', usersRoutes);
 
 app.get('/api/health', (_req, res) => {

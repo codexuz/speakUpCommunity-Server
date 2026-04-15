@@ -378,46 +378,38 @@ router.get('/:id', async (req: Request, res: Response) => {
   }
 });
 
-// PUT /api/speaking/:id — update (visibility)
-router.put('/:id', async (req: Request, res: Response) => {
+// PUT /api/speaking/sessions/:sessionId — update session visibility
+router.put('/sessions/:sessionId', async (req: Request, res: Response) => {
   try {
     const auth = (req as AuthenticatedRequest).auth!;
-    const existing = await prisma.response.findUnique({
-      where: { id: BigInt(req.params.id as string) },
-      select: { studentId: true },
+    const sessionId = BigInt(req.params.sessionId as string);
+
+    const session = await prisma.testSession.findUnique({
+      where: { id: sessionId },
+      select: { userId: true },
     });
 
-    if (!existing) {
-      res.status(404).json({ error: 'Not found' });
+    if (!session) {
+      res.status(404).json({ error: 'Session not found' });
       return;
     }
-    if (existing.studentId !== auth.userId) {
-      res.status(403).json({ error: "Cannot edit others' submissions" });
+    if (session.userId !== auth.userId) {
+      res.status(403).json({ error: "Cannot edit others' sessions" });
       return;
     }
 
     const { visibility } = req.body;
-    const updates: any = {};
-    if (visibility && ['private', 'group', 'community'].includes(visibility)) {
-      // Update visibility on the session if response has one
-      const resp = await prisma.response.findUnique({
-        where: { id: BigInt(req.params.id as string) },
-        select: { sessionId: true },
-      });
-      if (resp?.sessionId) {
-        await prisma.testSession.update({
-          where: { id: resp.sessionId },
-          data: { visibility },
-        });
-      }
+    if (!visibility || !['private', 'group', 'community'].includes(visibility)) {
+      res.status(400).json({ error: 'visibility must be one of: private, group, community' });
+      return;
     }
 
-    const response = await prisma.response.update({
-      where: { id: BigInt(req.params.id as string) },
-      data: updates,
+    const updated = await prisma.testSession.update({
+      where: { id: sessionId },
+      data: { visibility },
     });
 
-    res.json({ ...response, id: response.id.toString() });
+    res.json({ ...updated, id: updated.id.toString() });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
