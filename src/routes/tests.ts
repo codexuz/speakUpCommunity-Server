@@ -1,10 +1,25 @@
 import { Request, Response, Router } from 'express';
+import multer from 'multer';
+import { v4 as uuidv4 } from 'uuid';
 import { AuthenticatedRequest, authenticateRequest } from '../middleware/auth';
 import prisma from '../prisma';
+import { uploadFile } from '../services/minio';
 
 const router = Router();
 
 router.use(authenticateRequest);
+
+const questionImageUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image files are allowed'));
+    }
+  },
+});
 
 // ─── TESTS CRUD ─────────────────────────────────────────────
 
@@ -146,7 +161,7 @@ router.get('/questions/:id', async (req: Request, res: Response) => {
 });
 
 // POST /api/tests/:testId/questions — create a question
-router.post('/:testId/questions', async (req: Request, res: Response) => {
+router.post('/:testId/questions', questionImageUpload.single('image'), async (req: Request, res: Response) => {
   try {
     const auth = (req as AuthenticatedRequest).auth!;
     if (auth.role !== 'teacher' && auth.role !== 'admin') {
@@ -154,17 +169,25 @@ router.post('/:testId/questions', async (req: Request, res: Response) => {
       return;
     }
     const testId = parseInt(req.params.testId as string);
-    const { qText, part, image, audioUrl, speakingTimer, prepTimer } = req.body;
+    const { qText, part, audioUrl, speakingTimer, prepTimer } = req.body;
     if (!qText || !part) {
       res.status(400).json({ error: 'qText and part are required' });
       return;
     }
+
+    let imageUrl: string | undefined;
+    if (req.file) {
+      const ext = req.file.originalname.split('.').pop() || 'jpg';
+      const fileName = `questions/images/${uuidv4()}.${ext}`;
+      imageUrl = await uploadFile(fileName, req.file.buffer, req.file.mimetype);
+    }
+
     const question = await prisma.question.create({
       data: {
         testId,
         qText,
         part,
-        image,
+        image: imageUrl,
         audioUrl,
         ...(speakingTimer !== undefined && { speakingTimer }),
         ...(prepTimer !== undefined && { prepTimer }),
@@ -181,7 +204,7 @@ router.post('/:testId/questions', async (req: Request, res: Response) => {
 });
 
 // PUT /api/tests/questions/:id — update a question
-router.put('/questions/:id', async (req: Request, res: Response) => {
+router.put('/questions/:id', questionImageUpload.single('image'), async (req: Request, res: Response) => {
   try {
     const auth = (req as AuthenticatedRequest).auth!;
     if (auth.role !== 'teacher' && auth.role !== 'admin') {
@@ -189,13 +212,21 @@ router.put('/questions/:id', async (req: Request, res: Response) => {
       return;
     }
     const id = parseInt(req.params.id as string);
-    const { qText, part, image, audioUrl, speakingTimer, prepTimer } = req.body;
+    const { qText, part, audioUrl, speakingTimer, prepTimer } = req.body;
+
+    let imageUrl: string | undefined;
+    if (req.file) {
+      const ext = req.file.originalname.split('.').pop() || 'jpg';
+      const fileName = `questions/images/${uuidv4()}.${ext}`;
+      imageUrl = await uploadFile(fileName, req.file.buffer, req.file.mimetype);
+    }
+
     const question = await prisma.question.update({
       where: { id },
       data: {
         ...(qText !== undefined && { qText }),
         ...(part !== undefined && { part }),
-        ...(image !== undefined && { image }),
+        ...(imageUrl !== undefined && { image: imageUrl }),
         ...(audioUrl !== undefined && { audioUrl }),
         ...(speakingTimer !== undefined && { speakingTimer }),
         ...(prepTimer !== undefined && { prepTimer }),
