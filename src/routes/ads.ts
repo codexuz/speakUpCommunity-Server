@@ -68,7 +68,7 @@ router.get('/:id', requireRole('admin'), async (req: Request, res: Response) => 
 // POST /api/ads — create ad with image upload (admin only)
 router.post('/', requireRole('admin'), adImageUpload.single('image'), async (req: Request, res: Response) => {
   try {
-    const { title, linkUrl } = req.body;
+    const { title, adText, linkUrl } = req.body;
 
     if (!title) {
       res.status(400).json({ error: 'title is required' });
@@ -88,6 +88,7 @@ router.post('/', requireRole('admin'), adImageUpload.single('image'), async (req
     const ad = await prisma.ad.create({
       data: {
         title,
+        adText: adText || null,
         imageUrl,
         linkUrl: linkUrl || null,
       },
@@ -109,10 +110,11 @@ router.put('/:id', requireRole('admin'), adImageUpload.single('image'), async (r
       return;
     }
 
-    const { title, linkUrl, isActive } = req.body;
+    const { title, adText, linkUrl, isActive } = req.body;
     const data: any = {};
 
     if (title !== undefined) data.title = title;
+    if (adText !== undefined) data.adText = adText || null;
     if (linkUrl !== undefined) data.linkUrl = linkUrl || null;
     if (isActive !== undefined) data.isActive = isActive === 'true' || isActive === true;
 

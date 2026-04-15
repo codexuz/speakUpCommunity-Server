@@ -326,6 +326,7 @@ model GroupMessageAttachment {
 model Ad {
     id        Int      @id @default(autoincrement())
     title     String
+    adText    String?  @map("ad_text")
     imageUrl  String   @map("image_url")
     linkUrl   String?  @map("link_url")
     isActive  Boolean  @default(true) @map("is_active")
