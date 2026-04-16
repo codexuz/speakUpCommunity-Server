@@ -26,6 +26,18 @@ function getCefrLevel(score: number): string {
   return 'C1';
 }
 
+function getIeltsBand(score: number): string {
+  if (score <= 3.5) return 'A2';
+  if (score <= 4.5) return 'B1';
+  if (score <= 6.0) return 'B2';
+  if (score <= 7.5) return 'C1';
+  return 'C2';
+}
+
+function getLevelLabel(score: number, examType: string): string {
+  return examType === 'ielts' ? getIeltsBand(score) : getCefrLevel(score);
+}
+
 router.use(authenticateRequest);
 
 // ---------- SSE ----------
@@ -126,7 +138,7 @@ router.get('/sessions/:sessionId', async (req: Request, res: Response) => {
       ...session,
       id: session.id.toString(),
       isLiked: !!liked,
-      cefrLevel: session.scoreAvg != null ? getCefrLevel(Math.round(session.scoreAvg)) : null,
+      cefrLevel: session.scoreAvg != null ? getLevelLabel(Math.round(session.scoreAvg), session.examType) : null,
       responses: session.responses.map((r: any) => ({
         ...r,
         id: r.id.toString(),
@@ -134,7 +146,7 @@ router.get('/sessions/:sessionId', async (req: Request, res: Response) => {
       reviews: session.reviews.map((r: any) => ({
         ...r,
         id: r.id.toString(),
-        cefrLevel: getCefrLevel(r.score),
+        cefrLevel: getLevelLabel(r.score, session.examType),
       })),
     });
   } catch (error: any) {
@@ -265,6 +277,7 @@ router.post(
             userId: auth.userId,
             visibility: finalVisibility,
             groupId: resolvedGroupId,
+            examType: test.testType,
             isAnonymous: req.body.isAnonymous === true || req.body.isAnonymous === 'true',
           },
         });

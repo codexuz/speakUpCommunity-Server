@@ -17,6 +17,18 @@ function getCefrLevel(score: number): string {
   return 'C1';
 }
 
+function getIeltsBand(score: number): string {
+  if (score <= 3.5) return 'A2';
+  if (score <= 4.5) return 'B1';
+  if (score <= 6.0) return 'B2';
+  if (score <= 7.5) return 'C1';
+  return 'C2';
+}
+
+function getLevelLabel(score: number, examType: string): string {
+  return examType === 'ielts' ? getIeltsBand(score) : getCefrLevel(score);
+}
+
 function generateReferralCode(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let code = '';
@@ -308,7 +320,7 @@ router.get('/:id/submissions', async (req: Request, res: Response) => {
       data: sessions.map((s: any) => ({
         ...s,
         id: s.id.toString(),
-        cefrLevel: s.scoreAvg != null ? getCefrLevel(Math.round(s.scoreAvg)) : null,
+        cefrLevel: s.scoreAvg != null ? getLevelLabel(Math.round(s.scoreAvg), s.examType) : null,
       })),
       pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
     });

@@ -65,13 +65,17 @@ router.post('/', async (req: Request, res: Response) => {
       res.status(403).json({ error: 'Only teachers/admins can create tests' });
       return;
     }
-    const { title, description } = req.body;
+    const { title, description, testType } = req.body;
     if (!title) {
       res.status(400).json({ error: 'title is required' });
       return;
     }
     const test = await prisma.test.create({
-      data: { title, description },
+      data: {
+        title,
+        description,
+        testType: testType === 'ielts' ? 'ielts' : 'cefr',
+      },
       include: { questions: true },
     });
     res.status(201).json(test);
@@ -89,12 +93,13 @@ router.put('/:id', async (req: Request, res: Response) => {
       return;
     }
     const id = parseInt(req.params.id as string);
-    const { title, description } = req.body;
+    const { title, description, testType } = req.body;
     const test = await prisma.test.update({
       where: { id },
       data: {
         ...(title !== undefined && { title }),
         ...(description !== undefined && { description }),
+        ...(testType !== undefined && { testType: testType === 'ielts' ? 'ielts' as const : 'cefr' as const }),
       },
       include: { questions: { orderBy: { id: 'asc' } } },
     });

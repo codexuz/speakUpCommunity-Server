@@ -12,7 +12,7 @@ router.use(authenticateRequest);
 router.get('/:responseId', async (req: Request, res: Response) => {
   try {
     const auth = (req as AuthenticatedRequest).auth!;
-    const responseId = BigInt(req.params.responseId);
+    const responseId = BigInt(req.params.responseId as string);
 
     const feedback = await prisma.aIFeedback.findUnique({
       where: { responseId },
@@ -51,7 +51,7 @@ router.get('/:responseId', async (req: Request, res: Response) => {
 router.get('/session/:sessionId', async (req: Request, res: Response) => {
   try {
     const auth = (req as AuthenticatedRequest).auth!;
-    const sessionId = BigInt(req.params.sessionId);
+    const sessionId = BigInt(req.params.sessionId as string);
 
     const session = await prisma.testSession.findUnique({
       where: { id: sessionId },
@@ -117,7 +117,7 @@ router.get('/session/:sessionId', async (req: Request, res: Response) => {
 router.post('/:responseId/helpful', async (req: Request, res: Response) => {
   try {
     const auth = (req as AuthenticatedRequest).auth!;
-    const responseId = BigInt(req.params.responseId);
+    const responseId = BigInt(req.params.responseId as string);
 
     const feedback = await prisma.aIFeedback.findUnique({
       where: { responseId },

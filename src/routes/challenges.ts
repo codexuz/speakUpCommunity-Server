@@ -101,7 +101,7 @@ router.get('/:id', async (req: Request, res: Response) => {
   try {
     const auth = (req as AuthenticatedRequest).auth!;
     const challenge = await prisma.challenge.findUnique({
-      where: { id: req.params.id },
+      where: { id: req.params.id as string },
       include: {
         submissions: {
           orderBy: { submittedAt: 'desc' },
@@ -141,7 +141,7 @@ router.post(
   async (req: Request, res: Response) => {
     try {
       const auth = (req as AuthenticatedRequest).auth!;
-      const challengeId = req.params.id;
+      const challengeId = req.params.id as string;
       const now = new Date();
 
       // Validate challenge
@@ -266,7 +266,7 @@ router.put('/admin/:id', requireRole('teacher'), async (req: Request, res: Respo
     const { title, description, type, difficulty, promptText, promptImage, startsAt, endsAt, xpReward, coinReward, isActive } = req.body;
 
     const challenge = await prisma.challenge.update({
-      where: { id: req.params.id },
+      where: { id: req.params.id as string },
       data: {
         ...(title !== undefined && { title }),
         ...(description !== undefined && { description }),
@@ -291,7 +291,7 @@ router.put('/admin/:id', requireRole('teacher'), async (req: Request, res: Respo
 // DELETE /api/challenges/admin/:id — delete challenge
 router.delete('/admin/:id', requireRole('admin'), async (req: Request, res: Response) => {
   try {
-    await prisma.challenge.delete({ where: { id: req.params.id } });
+    await prisma.challenge.delete({ where: { id: req.params.id as string } });
     res.json({ message: 'Challenge deleted' });
   } catch (error: any) {
     res.status(500).json({ error: error.message });

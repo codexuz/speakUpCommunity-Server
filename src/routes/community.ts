@@ -13,6 +13,18 @@ function getCefrLevel(score: number): string {
   return 'C1';
 }
 
+function getIeltsBand(score: number): string {
+  if (score <= 3.5) return 'A2';
+  if (score <= 4.5) return 'B1';
+  if (score <= 6.0) return 'B2';
+  if (score <= 7.5) return 'C1';
+  return 'C2';
+}
+
+function getLevelLabel(score: number, examType: string): string {
+  return examType === 'ielts' ? getIeltsBand(score) : getCefrLevel(score);
+}
+
 const INCLUDE_SESSION = {
   user: { select: { id: true, fullName: true, username: true, avatarUrl: true } },
   test: { select: { id: true, title: true, description: true } },
@@ -91,7 +103,7 @@ router.get('/feed', async (req: Request, res: Response) => {
       ...s,
       id: s.id.toString(),
       isLiked: likedSet.has(s.id.toString()),
-      cefrLevel: s.scoreAvg != null ? getCefrLevel(Math.round(s.scoreAvg)) : null,
+      cefrLevel: s.scoreAvg != null ? getLevelLabel(Math.round(s.scoreAvg), s.examType) : null,
       // Anonymize user info if session is anonymous
       user: s.isAnonymous
         ? { id: null, fullName: 'Anonymous Speaker', username: 'anonymous', avatarUrl: null }

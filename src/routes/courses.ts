@@ -90,7 +90,7 @@ router.get('/:id', async (req: Request, res: Response) => {
     const auth = (req as AuthenticatedRequest).auth!;
 
     const course = await prisma.course.findUnique({
-      where: { id: req.params.id },
+      where: { id: req.params.id as string },
       include: {
         units: {
           orderBy: { order: 'asc' },
@@ -139,7 +139,7 @@ router.get('/:id', async (req: Request, res: Response) => {
 router.get('/lessons/:lessonId', async (req: Request, res: Response) => {
   try {
     const lesson = await prisma.lesson.findUnique({
-      where: { id: req.params.lessonId },
+      where: { id: req.params.lessonId as string },
       include: {
         exercises: { orderBy: { order: 'asc' } },
         unit: {
@@ -166,7 +166,7 @@ router.post('/lessons/:lessonId/complete', async (req: Request, res: Response) =
     const { score } = req.body; // 0-100 optional score from exercise results
 
     const lesson = await prisma.lesson.findUnique({
-      where: { id: req.params.lessonId },
+      where: { id: req.params.lessonId as string },
       select: { id: true, xpReward: true },
     });
     if (!lesson) {
@@ -239,7 +239,7 @@ router.put('/admin/:id', requireRole('admin'), async (req: Request, res: Respons
   try {
     const { title, description, level, imageUrl, isPublished, order } = req.body;
     const course = await prisma.course.update({
-      where: { id: req.params.id },
+      where: { id: req.params.id as string },
       data: {
         ...(title !== undefined && { title }),
         ...(description !== undefined && { description }),
@@ -258,7 +258,7 @@ router.put('/admin/:id', requireRole('admin'), async (req: Request, res: Respons
 // DELETE /api/courses/admin/:id — delete course
 router.delete('/admin/:id', requireRole('admin'), async (req: Request, res: Response) => {
   try {
-    await prisma.course.delete({ where: { id: req.params.id } });
+    await prisma.course.delete({ where: { id: req.params.id as string } });
     res.json({ message: 'Course deleted' });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -287,7 +287,7 @@ router.put('/admin/units/:id', requireRole('admin'), async (req: Request, res: R
   try {
     const { title, order } = req.body;
     const unit = await prisma.courseUnit.update({
-      where: { id: req.params.id },
+      where: { id: req.params.id as string },
       data: { ...(title !== undefined && { title }), ...(order !== undefined && { order }) },
     });
     res.json(unit);
@@ -299,7 +299,7 @@ router.put('/admin/units/:id', requireRole('admin'), async (req: Request, res: R
 // DELETE /api/courses/admin/units/:id — delete unit
 router.delete('/admin/units/:id', requireRole('admin'), async (req: Request, res: Response) => {
   try {
-    await prisma.courseUnit.delete({ where: { id: req.params.id } });
+    await prisma.courseUnit.delete({ where: { id: req.params.id as string } });
     res.json({ message: 'Unit deleted' });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -328,7 +328,7 @@ router.put('/admin/lessons/:id', requireRole('admin'), async (req: Request, res:
   try {
     const { title, order, xpReward } = req.body;
     const lesson = await prisma.lesson.update({
-      where: { id: req.params.id },
+      where: { id: req.params.id as string },
       data: {
         ...(title !== undefined && { title }),
         ...(order !== undefined && { order }),
@@ -344,7 +344,7 @@ router.put('/admin/lessons/:id', requireRole('admin'), async (req: Request, res:
 // DELETE /api/courses/admin/lessons/:id — delete lesson
 router.delete('/admin/lessons/:id', requireRole('admin'), async (req: Request, res: Response) => {
   try {
-    await prisma.lesson.delete({ where: { id: req.params.id } });
+    await prisma.lesson.delete({ where: { id: req.params.id as string } });
     res.json({ message: 'Lesson deleted' });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -383,7 +383,7 @@ router.put('/admin/exercises/:id', requireRole('admin'), async (req: Request, re
   try {
     const { type, order, prompt, correctAnswer, options, audioUrl, imageUrl, hints } = req.body;
     const exercise = await prisma.exercise.update({
-      where: { id: req.params.id },
+      where: { id: req.params.id as string },
       data: {
         ...(type !== undefined && { type }),
         ...(order !== undefined && { order }),
@@ -404,7 +404,7 @@ router.put('/admin/exercises/:id', requireRole('admin'), async (req: Request, re
 // DELETE /api/courses/admin/exercises/:id — delete exercise
 router.delete('/admin/exercises/:id', requireRole('admin'), async (req: Request, res: Response) => {
   try {
-    await prisma.exercise.delete({ where: { id: req.params.id } });
+    await prisma.exercise.delete({ where: { id: req.params.id as string } });
     res.json({ message: 'Exercise deleted' });
   } catch (error: any) {
     res.status(500).json({ error: error.message });

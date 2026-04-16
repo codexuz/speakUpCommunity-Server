@@ -17,6 +17,22 @@ function getCefrLevel(score: number): string {
   return 'C1';
 }
 
+function getIeltsBand(score: number): string {
+  if (score <= 3.5) return 'A2';
+  if (score <= 4.5) return 'B1';
+  if (score <= 6.0) return 'B2';
+  if (score <= 7.5) return 'C1';
+  return 'C2';
+}
+
+function getLevelLabel(score: number, examType: string): string {
+  return examType === 'ielts' ? getIeltsBand(score) : getCefrLevel(score);
+}
+
+function getScoreLabel(score: number, examType: string): string {
+  return examType === 'ielts' ? `${score}/9` : `${score}/75`;
+}
+
 // POST /api/reviews/:sessionId — post or update a review for a session
 router.post('/:sessionId', async (req: Request, res: Response) => {
   try {
@@ -29,17 +45,12 @@ router.post('/:sessionId', async (req: Request, res: Response) => {
       return;
     }
 
-    const numScore = parseInt(score);
-    if (isNaN(numScore) || numScore < 0 || numScore > 75) {
-      res.status(400).json({ error: 'Score must be between 0 and 75' });
-      return;
-    }
-
     // Check session exists
     const session = await prisma.testSession.findUnique({
       where: { id: sessionId },
       select: {
         userId: true,
+        examType: true,
         user: { select: { pushToken: true, fullName: true } },
         test: { select: { title: true } },
       },
@@ -47,6 +58,21 @@ router.post('/:sessionId', async (req: Request, res: Response) => {
     if (!session) {
       res.status(404).json({ error: 'Session not found' });
       return;
+    }
+
+    // Validate score based on exam type
+    const numScore = parseFloat(score);
+    if (session.examType === 'ielts') {
+      if (isNaN(numScore) || numScore < 0 || numScore > 9 || (numScore * 2) % 1 !== 0) {
+        res.status(400).json({ error: 'IELTS score must be 0-9 in 0.5 steps (e.g. 5.5, 6.0, 7.5)' });
+        return;
+      }
+    } else {
+      const intScore = parseInt(score);
+      if (isNaN(intScore) || intScore < 0 || intScore > 75) {
+        res.status(400).json({ error: 'CEFR score must be between 0 and 75' });
+        return;
+      }
     }
 
     // Can't review own session
@@ -80,13 +106,14 @@ router.post('/:sessionId', async (req: Request, res: Response) => {
       data: { scoreAvg: avgResult._avg.score },
     });
 
-    const cefrLevel = getCefrLevel(numScore);
+    const cefrLevel = getLevelLabel(numScore, session.examType);
 
     // SSE + push notify the speaker
     sseManager.sendToUser(session.userId, 'new-review', {
       sessionId: sessionId.toString(),
       reviewerName: auth.username,
       score: numScore,
+      examType: session.examType,
       cefrLevel,
     });
 
@@ -94,7 +121,7 @@ router.post('/:sessionId', async (req: Request, res: Response) => {
       await sendPushNotification(
         session.user.pushToken,
         'New Review',
-        `${auth.username} gave you ${numScore}/75 (${cefrLevel})`,
+        `${auth.username} gave you ${getScoreLabel(numScore, session.examType)} (${cefrLevel})`,
         { type: 'review', sessionId: sessionId.toString() },
       );
     }
@@ -150,6 +177,7 @@ router.get('/my-groups', async (req: Request, res: Response) => {
             select: {
               id: true,
               groupId: true,
+              examType: true,
               scoreAvg: true,
               test: { select: { id: true, title: true } },
               user: { select: { id: true, fullName: true, username: true, avatarUrl: true } },
@@ -166,7 +194,7 @@ router.get('/my-groups', async (req: Request, res: Response) => {
         ...r,
         id: r.id.toString(),
         session: { ...r.session, id: r.session.id.toString() },
-        cefrLevel: getCefrLevel(r.score),
+        cefrLevel: getLevelLabel(r.score, r.session.examType),
       })),
       pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
     });
@@ -185,13 +213,14 @@ router.get('/:sessionId', async (req: Request, res: Response) => {
       orderBy: { createdAt: 'desc' },
       include: {
         reviewer: { select: { id: true, fullName: true, username: true, avatarUrl: true } },
+        session: { select: { examType: true } },
       },
     });
 
     res.json(reviews.map((r: any) => ({
       ...r,
       id: r.id.toString(),
-      cefrLevel: getCefrLevel(r.score),
+      cefrLevel: getLevelLabel(r.score, r.session.examType),
     })));
   } catch (error: any) {
     res.status(500).json({ error: error.message });

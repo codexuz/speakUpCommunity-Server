@@ -16,9 +16,10 @@ This document covers all 6 new engagement phases, the API contracts for each, an
 4. [Duolingo-style Courses](#4-duolingo-style-courses)
 5. [Low-Pressure Practice Mode](#5-low-pressure-practice-mode)
 6. [Social Reputation System](#6-social-reputation-system)
-7. [TypeScript Types](#typescript-types)
-8. [Migration & Environment Setup](#migration--environment-setup)
-9. [UI/UX Design Guide](#uiux-design-guide)
+7. [Dual Exam Scoring (CEFR + IELTS)](#7-dual-exam-scoring-cefr--ielts)
+8. [TypeScript Types](#typescript-types)
+9. [Migration & Environment Setup](#migration--environment-setup)
+10. [UI/UX Design Guide](#uiux-design-guide)
 
 ---
 
@@ -765,6 +766,142 @@ A trust/contribution system that rewards helpful community members.
 
 ---
 
+## 7. Dual Exam Scoring (CEFR + IELTS)
+
+Sessions now support both CEFR (0–75) and IELTS (0–9) scoring. The exam type is set when the session is created and determines the score range for reviews.
+
+### How it works
+
+1. User creates a speaking session with `examType: 'cefr'` (default) or `examType: 'ielts'`
+2. Reviewers score using the appropriate scale based on the session's exam type
+3. Level labels are derived from the score automatically
+
+### Score Ranges & Level Mapping
+
+| Level | CEFR Score (0–75) | IELTS Band (0–9) |
+|-------|-------------------|-------------------|
+| A2    | 0 – 37            | 0 – 3.5           |
+| B1    | 38 – 50           | 4.0 – 4.5         |
+| B2    | 51 – 64           | 5.0 – 6.0         |
+| C1    | 65 – 75           | 6.5 – 7.5         |
+| C2    | —                 | 8.0 – 9.0         |
+
+> IELTS scores use **0.5 steps** (e.g. 5.5, 6.0, 6.5, 7.0).
+
+### API Changes
+
+#### Session creation — `POST /api/speaking/submit`
+
+New optional body field:
+
+```json
+{
+  "testId": 1,
+  "visibility": "group",
+  "examType": "ielts"
+}
+```
+
+`examType` defaults to `"cefr"` if omitted. Valid values: `"cefr"` | `"ielts"`.
+
+#### Review submission — `POST /api/reviews/:sessionId`
+
+The score is validated based on the session's exam type:
+
+- **CEFR session:** `score` must be an integer 0–75
+- **IELTS session:** `score` must be 0–9 in 0.5 steps (e.g. `5.5`, `6.0`, `7.5`)
+
+```json
+// CEFR review
+{ "score": 62, "feedback": "Good fluency" }
+
+// IELTS review
+{ "score": 6.5, "feedback": "Good fluency" }
+```
+
+#### Response changes
+
+All session responses now include `examType`. Level labels adapt automatically:
+
+```json
+// CEFR session
+{ "scoreAvg": 58, "examType": "cefr", "cefrLevel": "B2" }
+
+// IELTS session
+{ "scoreAvg": 6.5, "examType": "ielts", "cefrLevel": "C1" }
+```
+
+Affected endpoints:
+- `GET /api/speaking/sessions/:id` — session detail + reviews include level labels
+- `GET /api/reviews/:sessionId` — each review includes `cefrLevel` per exam type
+- `GET /api/reviews/my-groups` — includes `examType` in session select
+- `GET /api/community/feed` — feed items include `cefrLevel` per exam type
+- `GET /api/groups/:id/sessions` — group sessions include `cefrLevel` per exam type
+
+### Database Changes
+
+```sql
+-- New enum
+CREATE TYPE "exam_type" AS ENUM ('cefr', 'ielts');
+
+-- test_sessions: new column (defaults to cefr for existing data)
+ALTER TABLE "test_sessions" ADD COLUMN "exam_type" "exam_type" NOT NULL DEFAULT 'cefr';
+
+-- reviews: score changed from INT to FLOAT (for IELTS 0.5 bands)
+ALTER TABLE "reviews" ALTER COLUMN "score" TYPE DOUBLE PRECISION;
+```
+
+### Expo App Changes
+
+**Session creation screen:** Add an exam type picker before starting:
+
+```
+┌─────────────────────────────────────┐
+│  Choose Exam Type                   │
+│                                     │
+│  ┌─────────────┐ ┌──────────────┐  │
+│  │   📘 CEFR   │ │  📗 IELTS    │  │
+│  │   0 – 75    │ │   0 – 9      │  │
+│  │  ✓ Selected │ │              │  │
+│  └─────────────┘ └──────────────┘  │
+│                                     │
+│  [ Start Speaking ]                 │
+└─────────────────────────────────────┘
+```
+
+**Review screen:** Adapt the slider based on `session.examType`:
+
+```
+// CEFR mode                     // IELTS mode
+┌──────────────────┐             ┌──────────────────┐
+│ Score: 62 / 75   │             │ Band: 6.5 / 9    │
+│ ████████████░░░  │             │ ████████████░░░  │
+│ Level: B2        │             │ Level: C1        │
+└──────────────────┘             └──────────────────┘
+```
+
+**TypeScript type:**
+
+```ts
+type ExamType = 'cefr' | 'ielts';
+
+interface Session {
+  // ...existing fields
+  examType: ExamType;
+  cefrLevel: string | null; // "A2" | "B1" | "B2" | "C1" | "C2"
+}
+
+// Score validation helper
+function isValidScore(score: number, examType: ExamType): boolean {
+  if (examType === 'ielts') {
+    return score >= 0 && score <= 9 && (score * 2) % 1 === 0;
+  }
+  return Number.isInteger(score) && score >= 0 && score <= 75;
+}
+```
+
+---
+
 ## TypeScript Types
 
 Add these to your Expo app's type definitions:
@@ -1005,9 +1142,11 @@ This adds 12 new tables and modifies existing ones:
 **New tables:** `ai_feedbacks`, `user_progress`, `achievements`, `user_achievements`, `challenges`, `challenge_submissions`, `courses`, `course_units`, `lessons`, `exercises`, `user_lesson_progress`, `user_reputations`
 
 **Modified tables:**
-- `test_sessions` — added `is_anonymous` (default `false`)
+- `test_sessions` — added `is_anonymous` (default `false`), `exam_type` (default `'cefr'`)
 - `groups` — added `is_practice_room` (default `false`), `max_level`
 - `Visibility` enum — added `ai_only`
+- `ExamType` enum — new (`cefr`, `ielts`)
+- `reviews.score` — changed from `INT` to `DOUBLE PRECISION` (for IELTS 0.5 bands)
 
 ### 3. Achievement Seeding
 

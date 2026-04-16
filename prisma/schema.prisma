@@ -59,6 +59,13 @@ enum ChallengeType {
     @@map("challenge_type")
 }
 
+enum ExamType {
+    cefr
+    ielts
+
+    @@map("exam_type")
+}
+
 enum ExerciseType {
     listenRepeat
     speakTheAnswer
@@ -127,6 +134,7 @@ model Test {
     id          Int      @id @default(autoincrement())
     title       String
     description String?
+    testType    ExamType @default(cefr) @map("test_type")
     createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
 
     questions Question[]
@@ -141,6 +149,7 @@ model TestSession {
     userId        String     @map("user_id") @db.Uuid
     visibility    Visibility @default(private)
     groupId       String?    @map("group_id") @db.Uuid
+    examType      ExamType   @default(cefr) @map("exam_type")
     isAnonymous   Boolean    @default(false) @map("is_anonymous")
     likes         Int        @default(0)
     commentsCount Int        @default(0) @map("comments_count")
@@ -207,7 +216,7 @@ model Review {
     id         BigInt   @id @default(autoincrement())
     sessionId  BigInt   @map("session_id")
     reviewerId String   @map("reviewer_id") @db.Uuid
-    score      Int // 0-75
+    score      Float // CEFR: 0-75, IELTS: 0-9 (0.5 steps)
     feedback   String?
     createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
 
