@@ -1,4 +1,6 @@
 import { Request, Response, Router } from 'express';
+import multer from 'multer';
+import { v4 as uuidv4 } from 'uuid';
 import {
   AuthenticatedRequest,
   authenticateRequest,
@@ -6,8 +8,21 @@ import {
 } from '../middleware/auth';
 import prisma from '../prisma';
 import { awardXP } from '../services/gamification';
+import { uploadFile } from '../services/minio';
 
 const router = Router();
+
+const courseImageUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image files are allowed'));
+    }
+  },
+});
 
 router.use(authenticateRequest);
 
@@ -217,16 +232,30 @@ router.post('/lessons/:lessonId/complete', async (req: Request, res: Response) =
 // ─── Admin: manage courses ──────────────────────────────────────
 
 // POST /api/courses/admin/create — create course
-router.post('/admin/create', requireRole('admin'), async (req: Request, res: Response) => {
+router.post('/admin/create', requireRole('admin'), courseImageUpload.single('image'), async (req: Request, res: Response) => {
   try {
-    const { title, description, level, imageUrl, order } = req.body;
+    const { title, description, level, imageUrl, order, isPublished } = req.body;
     if (!title || !description || !level) {
       res.status(400).json({ error: 'title, description, level are required' });
       return;
     }
 
+    let resolvedImageUrl = imageUrl || null;
+    if (req.file) {
+      const ext = req.file.originalname.split('.').pop() || 'jpg';
+      const fileName = `courses/images/${uuidv4()}.${ext}`;
+      resolvedImageUrl = await uploadFile(fileName, req.file.buffer, req.file.mimetype);
+    }
+
     const course = await prisma.course.create({
-      data: { title, description, level, imageUrl: imageUrl || null, order: order || 0 },
+      data: {
+        title,
+        description,
+        level,
+        imageUrl: resolvedImageUrl,
+        order: order ? parseInt(order) : 0,
+        ...(isPublished !== undefined && { isPublished: isPublished === true || isPublished === 'true' }),
+      },
     });
     res.status(201).json(course);
   } catch (error: any) {
@@ -235,18 +264,28 @@ router.post('/admin/create', requireRole('admin'), async (req: Request, res: Res
 });
 
 // PUT /api/courses/admin/:id — update course
-router.put('/admin/:id', requireRole('admin'), async (req: Request, res: Response) => {
+router.put('/admin/:id', requireRole('admin'), courseImageUpload.single('image'), async (req: Request, res: Response) => {
   try {
     const { title, description, level, imageUrl, isPublished, order } = req.body;
+
+    let resolvedImageUrl: string | undefined;
+    if (req.file) {
+      const ext = req.file.originalname.split('.').pop() || 'jpg';
+      const fileName = `courses/images/${uuidv4()}.${ext}`;
+      resolvedImageUrl = await uploadFile(fileName, req.file.buffer, req.file.mimetype);
+    } else if (imageUrl !== undefined) {
+      resolvedImageUrl = imageUrl;
+    }
+
     const course = await prisma.course.update({
       where: { id: req.params.id as string },
       data: {
         ...(title !== undefined && { title }),
         ...(description !== undefined && { description }),
         ...(level !== undefined && { level }),
-        ...(imageUrl !== undefined && { imageUrl }),
-        ...(isPublished !== undefined && { isPublished }),
-        ...(order !== undefined && { order }),
+        ...(resolvedImageUrl !== undefined && { imageUrl: resolvedImageUrl }),
+        ...(isPublished !== undefined && { isPublished: isPublished === true || isPublished === 'true' }),
+        ...(order !== undefined && { order: typeof order === 'string' ? parseInt(order) : order }),
       },
     });
     res.json(course);
