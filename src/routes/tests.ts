@@ -1,3 +1,4 @@
+import { ExamType } from '@prisma/client';
 import { Request, Response, Router } from 'express';
 import multer from 'multer';
 import { v4 as uuidv4 } from 'uuid';
@@ -24,9 +25,13 @@ const questionImageUpload = multer({
 // ─── TESTS CRUD ─────────────────────────────────────────────
 
 // GET /api/tests — list all tests with questions
-router.get('/', async (_req: Request, res: Response) => {
+router.get('/', async (req: Request, res: Response) => {
   try {
+    const { testType } = req.query;
     const tests = await prisma.test.findMany({
+      where: testType && Object.values(ExamType).includes(testType as ExamType)
+        ? { testType: testType as ExamType }
+        : undefined,
       orderBy: { id: 'asc' },
       include: {
         questions: {
