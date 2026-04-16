@@ -8,10 +8,14 @@ import https from 'https';
 import { authLimiter, defaultLimiter } from './middleware/rateLimiter';
 import analyticsRoutes from './routes/analytics';
 import adsRoutes from './routes/ads';
+import aiFeedbackRoutes from './routes/aiFeedback';
 import authRoutes from './routes/auth';
+import challengesRoutes from './routes/challenges';
 import communityRoutes from './routes/community';
+import coursesRoutes from './routes/courses';
 import groupChatRoutes from './routes/groupChat';
 import groupsRoutes from './routes/groups';
+import progressRoutes from './routes/progress';
 import reviewsRoutes from './routes/reviews';
 import speakingRoutes from './routes/speaking';
 import teacherVerificationRoutes from './routes/teacherVerification';
@@ -19,6 +23,8 @@ import testsRoutes from './routes/tests';
 import usersRoutes from './routes/users';
 import { ensureBucket } from './services/minio';
 import { initChatSocket } from './services/chatSocket';
+import { initCronJobs } from './services/cron';
+import { seedAchievements } from './services/seedAchievements';
 import './workers/audio.worker';
 
 // BigInt JSON serialization support
@@ -65,6 +71,10 @@ app.use('/api/community', communityRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/ads', adsRoutes);
 app.use('/api/users', usersRoutes);
+app.use('/api/progress', progressRoutes);
+app.use('/api/challenges', challengesRoutes);
+app.use('/api/courses', coursesRoutes);
+app.use('/api/ai-feedback', aiFeedbackRoutes);
 
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok' });
@@ -92,6 +102,14 @@ async function start() {
 
   initChatSocket(server);
   console.log('Socket.IO chat server ready at /ws/chat');
+
+  // Seed achievements and start cron jobs
+  try {
+    await seedAchievements();
+  } catch (err) {
+    console.warn('Achievement seeding failed:', (err as Error).message);
+  }
+  initCronJobs();
 
   server.listen(Number(PORT), HOST, () => {
     const protocol = useHttps ? 'https' : 'http';

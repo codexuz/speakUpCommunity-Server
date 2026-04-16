@@ -210,7 +210,7 @@ router.post(
         return;
       }
 
-      const vis = ['private', 'group', 'community'].includes(visibility)
+      const vis = ['private', 'group', 'community', 'ai_only'].includes(visibility)
         ? visibility
         : 'private';
 
@@ -265,6 +265,7 @@ router.post(
             userId: auth.userId,
             visibility: finalVisibility,
             groupId: resolvedGroupId,
+            isAnonymous: req.body.isAnonymous === true || req.body.isAnonymous === 'true',
           },
         });
         resolvedSessionId = session.id;

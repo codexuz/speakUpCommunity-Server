@@ -12,6 +12,7 @@
     "db:seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
+    "@deepgram/sdk": "^5.0.0",
     "@prisma/client": "^6.6.0",
     "bcryptjs": "^3.0.3",
     "bullmq": "^5.73.4",
@@ -24,6 +25,8 @@
     "jsonwebtoken": "^9.0.3",
     "minio": "^8.0.7",
     "multer": "^2.1.1",
+    "node-cron": "^4.2.1",
+    "openai": "^6.34.0",
     "rate-limit-redis": "^4.3.1",
     "socket.io": "^4.8.3",
     "uuid": "^11.1.0"
@@ -34,6 +37,7 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/multer": "^1.4.12",
     "@types/node": "^22.15.3",
+    "@types/node-cron": "^3.0.11",
     "@types/uuid": "^10.0.0",
     "prisma": "^6.6.0",
     "tsx": "^4.19.4",

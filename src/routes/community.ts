@@ -92,6 +92,10 @@ router.get('/feed', async (req: Request, res: Response) => {
       id: s.id.toString(),
       isLiked: likedSet.has(s.id.toString()),
       cefrLevel: s.scoreAvg != null ? getCefrLevel(Math.round(s.scoreAvg)) : null,
+      // Anonymize user info if session is anonymous
+      user: s.isAnonymous
+        ? { id: null, fullName: 'Anonymous Speaker', username: 'anonymous', avatarUrl: null }
+        : s.user,
     }));
 
     res.json({

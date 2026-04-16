@@ -3,6 +3,8 @@ import { AuthenticatedRequest, authenticateRequest } from '../middleware/auth';
 import { sendPushNotification } from '../notifications';
 import prisma from '../prisma';
 import { sseManager } from '../services/sse';
+import { awardXP, checkAllAchievements, XP_REWARDS } from '../services/gamification';
+import { incrementReviewsGiven } from '../services/reputation';
 
 const router = Router();
 
@@ -96,6 +98,11 @@ router.post('/:sessionId', async (req: Request, res: Response) => {
         { type: 'review', sessionId: sessionId.toString() },
       );
     }
+
+    // Gamification: award XP for reviewing + update reputation
+    await awardXP(auth.userId, XP_REWARDS.REVIEW_SESSION, 0, { isReview: true });
+    await incrementReviewsGiven(auth.userId);
+    await checkAllAchievements(auth.userId);
 
     res.status(201).json({
       ...review,
