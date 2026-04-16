@@ -1,5 +1,6 @@
 import { Request, Response, Router } from 'express';
 import multer from 'multer';
+import { Prisma } from '@prisma/client';
 import { v4 as uuidv4 } from 'uuid';
 import { AuthenticatedRequest, authenticateRequest } from '../middleware/auth';
 import prisma from '../prisma';
@@ -20,10 +21,38 @@ const MAX_VIDEO_SIZE = 50 * 1024 * 1024; // 50 MB
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50 MB
 const MAX_ATTACHMENTS = 10;
 
+const ENTITY_TYPES = ['mention', 'hashtag', 'url', 'bold', 'italic', 'underline', 'code', 'pre', 'text_link', 'text_mention'] as const;
+
 const chatUpload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: MAX_FILE_SIZE, files: MAX_ATTACHMENTS },
 });
+
+// ── Helpers ──────────────────────────────────────────────────────
+
+interface MessageEntity {
+  type: (typeof ENTITY_TYPES)[number];
+  offset: number;
+  length: number;
+  url?: string;   // for text_link
+  userId?: string; // for text_mention
+}
+
+function validateEntities(entities: unknown, textLength: number): MessageEntity[] | null {
+  if (!Array.isArray(entities)) return null;
+  if (entities.length > 200) return null;
+
+  for (const e of entities) {
+    if (!e || typeof e !== 'object') return null;
+    if (!ENTITY_TYPES.includes(e.type)) return null;
+    if (typeof e.offset !== 'number' || typeof e.length !== 'number') return null;
+    if (e.offset < 0 || e.length <= 0 || e.offset + e.length > textLength) return null;
+    if (e.type === 'text_link' && (typeof e.url !== 'string' || e.url.length > 2048)) return null;
+    if (e.type === 'text_mention' && typeof e.userId !== 'string') return null;
+  }
+
+  return entities as MessageEntity[];
+}
 
 // ── Helpers ──────────────────────────────────────────────────────
 
@@ -88,6 +117,79 @@ async function notifyGroupMembers(
   }
 }
 
+// ── GET /api/group-chat/unread/counts ─────────────────────────────
+// Get unread message counts for all groups the user belongs to
+// IMPORTANT: This route must be before /:groupId routes
+router.get('/unread/counts', async (req: Request, res: Response) => {
+  try {
+    const auth = (req as AuthenticatedRequest).auth!;
+
+    const memberships = await prisma.groupMember.findMany({
+      where: { userId: auth.userId },
+      select: { groupId: true },
+    });
+
+    if (memberships.length === 0) {
+      res.json({ data: [] });
+      return;
+    }
+
+    const groupIds = memberships.map((m) => m.groupId);
+
+    // Get read cursors for all groups
+    const cursors = await prisma.groupMessageReadCursor.findMany({
+      where: { userId: auth.userId, groupId: { in: groupIds } },
+      select: { groupId: true, lastReadMsgId: true },
+    });
+    const cursorMap = new Map(cursors.map((c) => [c.groupId, c.lastReadMsgId]));
+
+    // Count unread messages per group
+    const unreadCounts = await Promise.all(
+      groupIds.map(async (groupId) => {
+        const lastReadId = cursorMap.get(groupId);
+        const count = await prisma.groupMessage.count({
+          where: {
+            groupId,
+            isDeleted: false,
+            ...(lastReadId ? { id: { gt: lastReadId } } : {}),
+          },
+        });
+
+        // Get the latest message for preview
+        const lastMessage = await prisma.groupMessage.findFirst({
+          where: { groupId, isDeleted: false },
+          orderBy: { id: 'desc' },
+          select: {
+            id: true,
+            text: true,
+            type: true,
+            createdAt: true,
+            sender: { select: { id: true, fullName: true, username: true } },
+          },
+        });
+
+        return {
+          groupId,
+          unreadCount: count,
+          lastMessage: lastMessage
+            ? {
+                id: lastMessage.id.toString(),
+                text: lastMessage.text,
+                type: lastMessage.type,
+                createdAt: lastMessage.createdAt,
+                sender: lastMessage.sender,
+              }
+            : null,
+        };
+      }),
+    );
+
+    res.json({ data: unreadCounts });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // ── GET /api/group-chat/:groupId/messages ────────────────────────
 // Cursor-based pagination (load older messages)
 router.get('/:groupId/messages', async (req: Request, res: Response) => {
@@ -150,7 +252,7 @@ router.post('/:groupId/messages', async (req: Request, res: Response) => {
     const membership = await requireChatMembership(groupId, auth.userId, res);
     if (!membership) return;
 
-    const { text, replyToId } = req.body;
+    const { text, replyToId, entities } = req.body;
 
     if (!text || typeof text !== 'string' || text.trim().length === 0) {
       res.status(400).json({ error: 'text is required' });
@@ -159,6 +261,16 @@ router.post('/:groupId/messages', async (req: Request, res: Response) => {
     if (text.length > 4000) {
       res.status(400).json({ error: 'Message text must be 4000 characters or fewer' });
       return;
+    }
+
+    // Validate entities if provided
+    let validatedEntities: MessageEntity[] | null = null;
+    if (entities) {
+      validatedEntities = validateEntities(entities, text.trim().length);
+      if (!validatedEntities) {
+        res.status(400).json({ error: 'Invalid message entities' });
+        return;
+      }
     }
 
     // Validate replyToId if provided
@@ -178,6 +290,7 @@ router.post('/:groupId/messages', async (req: Request, res: Response) => {
         senderId: auth.userId,
         type: 'text',
         text: text.trim(),
+        entities: validatedEntities as unknown as Prisma.InputJsonValue ?? undefined,
         replyToId: replyToId ? BigInt(replyToId) : null,
       },
       include: {
@@ -236,6 +349,15 @@ router.post(
       }
       const replyToId = req.body.replyToId as string | undefined;
 
+      // Validate entities for caption
+      let validatedEntities: MessageEntity[] | null = null;
+      if (req.body.entities && text) {
+        validatedEntities = validateEntities(
+          typeof req.body.entities === 'string' ? JSON.parse(req.body.entities) : req.body.entities,
+          text.length,
+        );
+      }
+
       if (replyToId) {
         const parentMsg = await prisma.groupMessage.findFirst({
           where: { id: BigInt(replyToId), groupId },
@@ -268,6 +390,7 @@ router.post(
             senderId: auth.userId,
             type: primaryType,
             text,
+            entities: validatedEntities as unknown as Prisma.InputJsonValue ?? undefined,
             replyToId: replyToId ? BigInt(replyToId) : null,
           },
         });
@@ -343,7 +466,7 @@ router.put('/:groupId/messages/:messageId', async (req: Request, res: Response) 
     const membership = await requireChatMembership(groupId, auth.userId, res);
     if (!membership) return;
 
-    const { text } = req.body;
+    const { text, entities } = req.body;
     if (!text || typeof text !== 'string' || text.trim().length === 0) {
       res.status(400).json({ error: 'text is required' });
       return;
@@ -351,6 +474,20 @@ router.put('/:groupId/messages/:messageId', async (req: Request, res: Response) 
     if (text.length > 4000) {
       res.status(400).json({ error: 'Message text must be 4000 characters or fewer' });
       return;
+    }
+
+    // Validate entities if provided
+    let validatedEntities: MessageEntity[] | null | undefined = undefined;
+    if (entities !== undefined) {
+      if (entities === null) {
+        validatedEntities = null;
+      } else {
+        validatedEntities = validateEntities(entities, text.trim().length);
+        if (!validatedEntities) {
+          res.status(400).json({ error: 'Invalid message entities' });
+          return;
+        }
+      }
     }
 
     const message = await prisma.groupMessage.findFirst({
@@ -371,7 +508,13 @@ router.put('/:groupId/messages/:messageId', async (req: Request, res: Response) 
 
     const updated = await prisma.groupMessage.update({
       where: { id: message.id },
-      data: { text: text.trim(), isEdited: true },
+      data: {
+        text: text.trim(),
+        isEdited: true,
+        ...(validatedEntities !== undefined
+          ? { entities: validatedEntities === null ? Prisma.JsonNull : (validatedEntities as unknown as Prisma.InputJsonValue) }
+          : {}),
+      },
       include: {
         sender: { select: { id: true, fullName: true, username: true, avatarUrl: true } },
         attachments: true,
@@ -633,6 +776,44 @@ router.get('/:groupId/files', async (req: Request, res: Response) => {
       nextCursor,
       hasMore,
     });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ── POST /api/group-chat/:groupId/read ────────────────────────────
+// Mark messages as read up to a given message ID
+router.post('/:groupId/read', async (req: Request, res: Response) => {
+  try {
+    const auth = (req as AuthenticatedRequest).auth!;
+    const groupId = req.params.groupId as string;
+
+    const membership = await requireChatMembership(groupId, auth.userId, res);
+    if (!membership) return;
+
+    const { lastMessageId } = req.body;
+    if (!lastMessageId || typeof lastMessageId !== 'string') {
+      res.status(400).json({ error: 'lastMessageId is required' });
+      return;
+    }
+
+    // Verify the message exists in this group
+    const msg = await prisma.groupMessage.findFirst({
+      where: { id: BigInt(lastMessageId), groupId },
+      select: { id: true },
+    });
+    if (!msg) {
+      res.status(400).json({ error: 'Message not found in this group' });
+      return;
+    }
+
+    await prisma.groupMessageReadCursor.upsert({
+      where: { groupId_userId: { groupId, userId: auth.userId } },
+      create: { groupId, userId: auth.userId, lastReadMsgId: msg.id },
+      update: { lastReadMsgId: msg.id },
+    });
+
+    res.json({ success: true });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }

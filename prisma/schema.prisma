@@ -66,17 +66,18 @@ model User {
 
     responses             Response[]
     testSessions          TestSession[]
-    groups                Group[]               @relation("CreatorGroups")
+    groups                Group[]                  @relation("CreatorGroups")
     memberships           GroupMember[]
     reviews               Review[]
     likes                 Like[]
     comments              Comment[]
-    following             UserFollow[]          @relation("UserFollowing")
-    followers             UserFollow[]          @relation("UserFollowers")
+    following             UserFollow[]             @relation("UserFollowing")
+    followers             UserFollow[]             @relation("UserFollowers")
     joinRequests          GroupJoinRequest[]
-    teacherRequests       TeacherVerification[] @relation("TeacherRequester")
-    reviewedVerifications TeacherVerification[] @relation("VerificationReviewer")
+    teacherRequests       TeacherVerification[]    @relation("TeacherRequester")
+    reviewedVerifications TeacherVerification[]    @relation("VerificationReviewer")
     groupMessages         GroupMessage[]
+    readCursors           GroupMessageReadCursor[]
 
     @@map("users")
 }
@@ -227,11 +228,12 @@ model Group {
     isGlobal     Boolean  @default(false) @map("is_global")
     createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
 
-    creator      User               @relation("CreatorGroups", fields: [createdById], references: [id], onDelete: Cascade)
+    creator      User                     @relation("CreatorGroups", fields: [createdById], references: [id], onDelete: Cascade)
     members      GroupMember[]
     sessions     TestSession[]
     joinRequests GroupJoinRequest[]
     messages     GroupMessage[]
+    readCursors  GroupMessageReadCursor[]
 
     @@map("groups")
 }
@@ -293,6 +295,7 @@ model GroupMessage {
     senderId  String      @map("sender_id") @db.Uuid
     type      MessageType @default(text)
     text      String?
+    entities  Json?       @db.JsonB
     replyToId BigInt?     @map("reply_to_id")
     isEdited  Boolean     @default(false) @map("is_edited")
     isDeleted Boolean     @default(false) @map("is_deleted")
@@ -308,6 +311,21 @@ model GroupMessage {
     @@index([groupId, createdAt])
     @@index([senderId])
     @@map("group_messages")
+}
+
+model GroupMessageReadCursor {
+    id            BigInt   @id @default(autoincrement())
+    groupId       String   @map("group_id") @db.Uuid
+    userId        String   @map("user_id") @db.Uuid
+    lastReadMsgId BigInt   @map("last_read_msg_id")
+    updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+    group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+    user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    @@unique([groupId, userId])
+    @@index([userId])
+    @@map("group_message_read_cursors")
 }
 
 model GroupMessageAttachment {

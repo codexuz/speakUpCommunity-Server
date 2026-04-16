@@ -18,6 +18,26 @@ npx expo install socket.io-client
 ```ts
 export type MessageType = "text" | "image" | "video" | "file" | "system";
 
+export type EntityType =
+  | "mention"    // @username
+  | "hashtag"    // #tag
+  | "url"        // auto-detected URL
+  | "bold"       // **bold**
+  | "italic"     // *italic*
+  | "underline"  // __underline__
+  | "code"       // `inline code`
+  | "pre"        // ```code block```
+  | "text_link"  // clickable text with custom URL
+  | "text_mention"; // mention with user reference
+
+export interface MessageEntity {
+  type: EntityType;
+  offset: number;  // start position in text (UTF-16 code units)
+  length: number;  // length of entity (UTF-16 code units)
+  url?: string;    // only for text_link
+  userId?: string; // only for text_mention
+}
+
 export interface ChatAttachment {
   id: string;
   messageId: string;
@@ -41,6 +61,7 @@ export interface ChatMessage {
   senderId: string;
   type: MessageType;
   text: string | null;
+  entities: MessageEntity[] | null;
   replyToId: string | null;
   isEdited: boolean;
   isDeleted: boolean;
@@ -52,6 +73,18 @@ export interface ChatMessage {
     id: string;
     text: string | null;
     type: MessageType;
+    sender: Pick<ChatSender, "id" | "fullName" | "username">;
+  } | null;
+}
+
+export interface UnreadCount {
+  groupId: string;
+  unreadCount: number;
+  lastMessage: {
+    id: string;
+    text: string | null;
+    type: MessageType;
+    createdAt: string;
     sender: Pick<ChatSender, "id" | "fullName" | "username">;
   } | null;
 }
@@ -223,14 +256,36 @@ const res = await fetch(`${BASE_URL}/group-chat/${groupId}/messages`, {
   body: JSON.stringify({
     text: "Hello everyone!",
     replyToId: null, // or message ID string to reply to
+    entities: null,  // or array of MessageEntity[]
   }),
+});
+const message: ChatMessage = await res.json(); // 201
+```
+
+#### Sending a Message with Entities (Rich Text)
+
+Entities describe formatting ranges within the `text` field (Telegram-style).
+
+```ts
+const text = "Visit Google or ask @john for help!";
+const entities: MessageEntity[] = [
+  { type: "url", offset: 6, length: 6 },           // "Google"
+  { type: "text_link", offset: 6, length: 6, url: "https://google.com" },
+  { type: "mention", offset: 20, length: 5 },       // "@john"
+  { type: "bold", offset: 26, length: 8 },          // "for help"
+];
+
+const res = await fetch(`${BASE_URL}/group-chat/${groupId}/messages`, {
+  method: "POST",
+  headers: headers(token),
+  body: JSON.stringify({ text, entities }),
 });
 const message: ChatMessage = await res.json(); // 201
 ```
 
 ### Send Files (Images / Videos / Documents)
 
-Use `multipart/form-data`. Field name is `files` (up to 10). Optional `text` caption and `replyToId`.
+Use `multipart/form-data`. Field name is `files` (up to 10). Optional `text` caption, `replyToId`, and `entities` (stringified JSON array).
 
 ```ts
 import * as ImagePicker from "expo-image-picker";
@@ -311,7 +366,10 @@ const res = await fetch(
   {
     method: "PUT",
     headers: headers(token),
-    body: JSON.stringify({ text: "Updated message text" }),
+    body: JSON.stringify({
+      text: "Updated message text",
+      entities: [{ type: "bold", offset: 0, length: 7 }], // optional
+    }),
   }
 );
 const updated: ChatMessage = await res.json(); // isEdited: true
@@ -377,6 +435,42 @@ const res = await fetch(
 );
 const { data, nextCursor, hasMore }: PaginatedAttachments = await res.json();
 ```
+
+---
+
+## REST API — Unread Messages
+
+### Get Unread Counts for All Groups
+
+Returns unread message count + last message preview for every group the user belongs to.
+
+```ts
+const res = await fetch(`${BASE_URL}/group-chat/unread/counts`, {
+  headers: headers(token),
+});
+const { data }: { data: UnreadCount[] } = await res.json();
+
+// Example response:
+// { data: [
+//   { groupId: "abc", unreadCount: 5, lastMessage: { id: "99", text: "Hey!", ... } },
+//   { groupId: "def", unreadCount: 0, lastMessage: null }
+// ] }
+```
+
+### Mark Messages as Read (REST)
+
+Persists the read cursor for the user in a group.
+
+```ts
+await fetch(`${BASE_URL}/group-chat/${groupId}/read`, {
+  method: "POST",
+  headers: headers(token),
+  body: JSON.stringify({ lastMessageId: "123" }),
+});
+// { success: true }
+```
+
+> You can also mark-read via WebSocket (see socket events above). Both methods persist the cursor.
 
 ---
 
@@ -466,14 +560,18 @@ export function useGroupChat(groupId: string, token: string) {
 
   // Send text
   const sendText = useCallback(
-    async (text: string, replyToId?: string) => {
+    async (text: string, replyToId?: string, entities?: MessageEntity[]) => {
       await fetch(`${API}/group-chat/${groupId}/messages`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ text, replyToId: replyToId ?? null }),
+        body: JSON.stringify({
+          text,
+          replyToId: replyToId ?? null,
+          entities: entities ?? null,
+        }),
       });
     },
     [groupId, token]
@@ -504,12 +602,22 @@ export function useGroupChat(groupId: string, token: string) {
     [groupId]
   );
 
-  // Mark as read
+  // Mark as read (persists to DB via REST + emits via WebSocket)
   const markRead = useCallback(
-    (lastMessageId: string) => {
+    async (lastMessageId: string) => {
+      // Persist via REST
+      fetch(`${API}/group-chat/${groupId}/read`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ lastMessageId }),
+      }).catch(() => {});
+      // Also emit for real-time read receipts
       socketRef.current?.emit("mark-read", { groupId, lastMessageId });
     },
-    [groupId]
+    [groupId, token]
   );
 
   return {
@@ -594,6 +702,7 @@ All endpoints return errors in the format:
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
+| `GET` | `/api/group-chat/unread/counts` | Unread counts for all groups |
 | `GET` | `/api/group-chat/:groupId/messages?limit=30&cursor=` | Load message history (paginated) |
 | `GET` | `/api/group-chat/:groupId/messages/search?q=&limit=` | Search messages |
 | `GET` | `/api/group-chat/:groupId/messages/:messageId` | Get single message |
@@ -601,6 +710,7 @@ All endpoints return errors in the format:
 | `POST` | `/api/group-chat/:groupId/messages/attachment` | Send files (multipart) |
 | `PUT` | `/api/group-chat/:groupId/messages/:messageId` | Edit message |
 | `DELETE` | `/api/group-chat/:groupId/messages/:messageId` | Delete message |
+| `POST` | `/api/group-chat/:groupId/read` | Mark messages as read |
 | `GET` | `/api/group-chat/:groupId/media?limit=30&cursor=` | Media gallery |
 | `GET` | `/api/group-chat/:groupId/files?limit=30&cursor=` | Shared files list |
 

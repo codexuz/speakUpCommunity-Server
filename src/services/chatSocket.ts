@@ -138,14 +138,37 @@ export function initChatSocket(httpServer: HttpServer): Server {
       });
     });
 
-    // Mark messages as read (for future read-receipts)
+    // Mark messages as read — persists to DB and emits receipt
     socket.on('mark-read', async (data: { groupId: string; lastMessageId: string }) => {
       if (!data || typeof data.groupId !== 'string' || typeof data.lastMessageId !== 'string') return;
-      socket.to(`group:${data.groupId}`).emit('messages-read', {
-        groupId: data.groupId,
-        userId,
-        lastMessageId: data.lastMessageId,
-      });
+
+      try {
+        const msgId = BigInt(data.lastMessageId);
+
+        // Verify message exists in this group
+        const msg = await prisma.groupMessage.findFirst({
+          where: { id: msgId, groupId: data.groupId },
+          select: { id: true },
+        });
+        if (!msg) return;
+
+        // Upsert the read cursor (only advance forward)
+        await prisma.$executeRaw`
+          INSERT INTO group_message_read_cursors (group_id, user_id, last_read_msg_id, updated_at)
+          VALUES (${data.groupId}::uuid, ${userId}::uuid, ${msgId}, NOW())
+          ON CONFLICT (group_id, user_id)
+          DO UPDATE SET last_read_msg_id = GREATEST(group_message_read_cursors.last_read_msg_id, EXCLUDED.last_read_msg_id),
+                        updated_at = NOW()
+        `;
+
+        socket.to(`group:${data.groupId}`).emit('messages-read', {
+          groupId: data.groupId,
+          userId,
+          lastMessageId: data.lastMessageId,
+        });
+      } catch {
+        // Silently ignore invalid message IDs
+      }
     });
 
     socket.on('disconnect', () => {
