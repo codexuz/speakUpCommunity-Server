@@ -790,19 +790,28 @@ Sessions now support both CEFR (0–75) and IELTS (0–9) scoring. The exam type
 
 ### API Changes
 
-#### Session creation — `POST /api/speaking/submit`
+#### Test creation — `POST /api/tests`
 
 New optional body field:
 
 ```json
+{ "title": "IELTS Speaking Part 1", "description": "...", "testType": "ielts" }
+```
+
+`testType` defaults to `"cefr"` if omitted. Valid values: `"cefr"` | `"ielts"`. Can also be updated via `PUT /api/tests/:id`.
+
+#### Session creation — `POST /api/speaking/submit`
+
+The session's `examType` is now **automatically inherited** from `test.testType`. No need to pass `examType` in the request body.
+
+```json
 {
   "testId": 1,
-  "visibility": "group",
-  "examType": "ielts"
+  "visibility": "group"
 }
 ```
 
-`examType` defaults to `"cefr"` if omitted. Valid values: `"cefr"` | `"ielts"`.
+> If `testId` points to an IELTS test, the session is automatically created with `examType: 'ielts'`.
 
 #### Review submission — `POST /api/reviews/:sessionId`
 
@@ -843,6 +852,9 @@ Affected endpoints:
 ```sql
 -- New enum
 CREATE TYPE "exam_type" AS ENUM ('cefr', 'ielts');
+
+-- tests: new column (defaults to cefr for existing tests)
+ALTER TABLE "tests" ADD COLUMN "test_type" "exam_type" NOT NULL DEFAULT 'cefr';
 
 -- test_sessions: new column (defaults to cefr for existing data)
 ALTER TABLE "test_sessions" ADD COLUMN "exam_type" "exam_type" NOT NULL DEFAULT 'cefr';
@@ -1142,7 +1154,8 @@ This adds 12 new tables and modifies existing ones:
 **New tables:** `ai_feedbacks`, `user_progress`, `achievements`, `user_achievements`, `challenges`, `challenge_submissions`, `courses`, `course_units`, `lessons`, `exercises`, `user_lesson_progress`, `user_reputations`
 
 **Modified tables:**
-- `test_sessions` — added `is_anonymous` (default `false`), `exam_type` (default `'cefr'`)
+- `tests` — added `test_type` (default `'cefr'`)
+- `test_sessions` — added `is_anonymous` (default `false`), `exam_type` (default `'cefr'`, inherited from test)
 - `groups` — added `is_practice_room` (default `false`), `max_level`
 - `Visibility` enum — added `ai_only`
 - `ExamType` enum — new (`cefr`, `ielts`)
