@@ -154,7 +154,7 @@ router.get('/sessions/:sessionId', async (req: Request, res: Response) => {
   }
 });
 
-// GET /api/speaking/pending — unreviewed sessions from the teacher's groups
+// GET /api/speaking/pending — unreviewed sessions from students in the teacher's non-global groups
 router.get('/pending', requireRole('teacher'), async (req: Request, res: Response) => {
   try {
     const auth = (req as AuthenticatedRequest).auth!;
@@ -162,9 +162,13 @@ router.get('/pending', requireRole('teacher'), async (req: Request, res: Respons
     const limit = Math.min(50, Math.max(1, parseInt(req.query.limit as string) || 20));
     const offset = (page - 1) * limit;
 
-    // Find groups where the teacher is owner or teacher
+    // Find non-global groups where the teacher is owner or teacher
     const managedGroups = await prisma.groupMember.findMany({
-      where: { userId: auth.userId, role: { in: ['owner', 'teacher'] } },
+      where: {
+        userId: auth.userId,
+        role: { in: ['owner', 'teacher'] },
+        group: { isGlobal: false },
+      },
       select: { groupId: true },
     });
     const groupIds = managedGroups.map((m) => m.groupId);
@@ -174,8 +178,20 @@ router.get('/pending', requireRole('teacher'), async (req: Request, res: Respons
       return;
     }
 
+    // Find students who are members of those groups
+    const studentMembers = await prisma.groupMember.findMany({
+      where: { groupId: { in: groupIds }, userId: { not: auth.userId } },
+      select: { userId: true },
+    });
+    const studentIds = [...new Set(studentMembers.map((m) => m.userId))];
+
+    if (studentIds.length === 0) {
+      res.json({ data: [], pagination: { page, limit, total: 0, totalPages: 0 } });
+      return;
+    }
+
     const where = {
-      groupId: { in: groupIds },
+      userId: { in: studentIds },
       reviews: { none: {} },
     };
 
@@ -224,7 +240,7 @@ router.post(
 
       const vis = ['private', 'group', 'community', 'ai_only'].includes(visibility)
         ? visibility
-        : 'private';
+        : 'community';
 
       // Validate group membership if groupId provided
       let resolvedGroupId: string | null = null;

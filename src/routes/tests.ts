@@ -24,22 +24,42 @@ const questionImageUpload = multer({
 
 // ─── TESTS CRUD ─────────────────────────────────────────────
 
-// GET /api/tests — list all tests with questions
+// GET /api/tests — list all tests with questions (paginated)
 router.get('/', async (req: Request, res: Response) => {
   try {
     const { testType } = req.query;
-    const tests = await prisma.test.findMany({
-      where: testType && Object.values(ExamType).includes(testType as ExamType)
-        ? { testType: testType as ExamType }
-        : undefined,
-      orderBy: { id: 'asc' },
-      include: {
-        questions: {
-          orderBy: { id: 'asc' },
+    const page = Math.max(1, parseInt(req.query.page as string) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 10));
+    const skip = (page - 1) * limit;
+
+    const where = testType && Object.values(ExamType).includes(testType as ExamType)
+      ? { testType: testType as ExamType }
+      : undefined;
+
+    const [tests, total] = await Promise.all([
+      prisma.test.findMany({
+        where,
+        orderBy: { id: 'asc' },
+        skip,
+        take: limit,
+        include: {
+          questions: {
+            orderBy: { id: 'asc' },
+          },
         },
+      }),
+      prisma.test.count({ where }),
+    ]);
+
+    res.json({
+      data: tests,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
       },
     });
-    res.json(tests);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
