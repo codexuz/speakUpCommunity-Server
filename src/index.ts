@@ -18,6 +18,7 @@ import groupsRoutes from './routes/groups';
 import progressRoutes from './routes/progress';
 import reviewsRoutes from './routes/reviews';
 import speakingRoutes from './routes/speaking';
+import speechRoutes from './routes/speech';
 import teacherVerificationRoutes from './routes/teacherVerification';
 import testsRoutes from './routes/tests';
 import usersRoutes from './routes/users';
@@ -75,6 +76,7 @@ app.use('/api/progress', progressRoutes);
 app.use('/api/challenges', challengesRoutes);
 app.use('/api/courses', coursesRoutes);
 app.use('/api/ai-feedback', aiFeedbackRoutes);
+app.use('/api/speech', speechRoutes);
 
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok' });
