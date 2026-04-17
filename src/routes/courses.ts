@@ -156,7 +156,15 @@ router.get('/lessons/:lessonId', async (req: Request, res: Response) => {
     const lesson = await prisma.lesson.findUnique({
       where: { id: req.params.lessonId as string },
       include: {
-        exercises: { orderBy: { order: 'asc' } },
+        exercises: {
+          orderBy: { order: 'asc' },
+          include: {
+            options: { orderBy: { order: 'asc' } },
+            matchPairs: { orderBy: { order: 'asc' } },
+            wordBankItems: { orderBy: { correctPosition: 'asc' } },
+            conversationLines: { orderBy: { order: 'asc' } },
+          },
+        },
         unit: {
           include: { course: { select: { id: true, title: true, level: true } } },
         },
@@ -393,7 +401,12 @@ router.delete('/admin/lessons/:id', requireRole('admin'), async (req: Request, r
 // POST /api/courses/admin/exercises — create exercise
 router.post('/admin/exercises', requireRole('admin'), async (req: Request, res: Response) => {
   try {
-    const { lessonId, type, order, prompt, correctAnswer, options, audioUrl, imageUrl, hints } = req.body;
+    const {
+      lessonId, type, order, prompt, promptAudio, correctAnswer,
+      sentenceTemplate, targetText, audioUrl, imageUrl, hints,
+      explanation, difficulty, xpReward,
+      options, matchPairs, wordBankItems, conversationLines,
+    } = req.body;
     if (!lessonId || !type || !prompt) {
       res.status(400).json({ error: 'lessonId, type, prompt are required' });
       return;
@@ -404,11 +417,34 @@ router.post('/admin/exercises', requireRole('admin'), async (req: Request, res: 
         type,
         order: order ?? 0,
         prompt,
+        promptAudio: promptAudio || null,
         correctAnswer: correctAnswer || null,
-        options: options || null,
+        sentenceTemplate: sentenceTemplate || null,
+        targetText: targetText || null,
         audioUrl: audioUrl || null,
         imageUrl: imageUrl || null,
         hints: hints || null,
+        explanation: explanation || null,
+        difficulty: difficulty ?? 1,
+        xpReward: xpReward ?? 10,
+        ...(options?.length && {
+          options: { createMany: { data: options } },
+        }),
+        ...(matchPairs?.length && {
+          matchPairs: { createMany: { data: matchPairs } },
+        }),
+        ...(wordBankItems?.length && {
+          wordBankItems: { createMany: { data: wordBankItems } },
+        }),
+        ...(conversationLines?.length && {
+          conversationLines: { createMany: { data: conversationLines } },
+        }),
+      },
+      include: {
+        options: { orderBy: { order: 'asc' } },
+        matchPairs: { orderBy: { order: 'asc' } },
+        wordBankItems: { orderBy: { correctPosition: 'asc' } },
+        conversationLines: { orderBy: { order: 'asc' } },
       },
     });
     res.status(201).json(exercise);
@@ -420,18 +456,72 @@ router.post('/admin/exercises', requireRole('admin'), async (req: Request, res: 
 // PUT /api/courses/admin/exercises/:id — update exercise
 router.put('/admin/exercises/:id', requireRole('admin'), async (req: Request, res: Response) => {
   try {
-    const { type, order, prompt, correctAnswer, options, audioUrl, imageUrl, hints } = req.body;
+    const {
+      type, order, prompt, promptAudio, correctAnswer,
+      sentenceTemplate, targetText, audioUrl, imageUrl, hints,
+      explanation, difficulty, xpReward,
+      options, matchPairs, wordBankItems, conversationLines,
+    } = req.body;
+
+    // Replace child records if provided
+    const exerciseId = req.params.id as string;
+    await prisma.$transaction(async (tx) => {
+      if (options !== undefined) {
+        await tx.exerciseOption.deleteMany({ where: { exerciseId } });
+        if (options?.length) {
+          await tx.exerciseOption.createMany({
+            data: options.map((o: any) => ({ ...o, exerciseId })),
+          });
+        }
+      }
+      if (matchPairs !== undefined) {
+        await tx.exerciseMatchPair.deleteMany({ where: { exerciseId } });
+        if (matchPairs?.length) {
+          await tx.exerciseMatchPair.createMany({
+            data: matchPairs.map((p: any) => ({ ...p, exerciseId })),
+          });
+        }
+      }
+      if (wordBankItems !== undefined) {
+        await tx.exerciseWordBankItem.deleteMany({ where: { exerciseId } });
+        if (wordBankItems?.length) {
+          await tx.exerciseWordBankItem.createMany({
+            data: wordBankItems.map((w: any) => ({ ...w, exerciseId })),
+          });
+        }
+      }
+      if (conversationLines !== undefined) {
+        await tx.exerciseConversationLine.deleteMany({ where: { exerciseId } });
+        if (conversationLines?.length) {
+          await tx.exerciseConversationLine.createMany({
+            data: conversationLines.map((c: any) => ({ ...c, exerciseId })),
+          });
+        }
+      }
+    });
+
     const exercise = await prisma.exercise.update({
-      where: { id: req.params.id as string },
+      where: { id: exerciseId },
       data: {
         ...(type !== undefined && { type }),
         ...(order !== undefined && { order }),
         ...(prompt !== undefined && { prompt }),
+        ...(promptAudio !== undefined && { promptAudio }),
         ...(correctAnswer !== undefined && { correctAnswer }),
-        ...(options !== undefined && { options }),
+        ...(sentenceTemplate !== undefined && { sentenceTemplate }),
+        ...(targetText !== undefined && { targetText }),
         ...(audioUrl !== undefined && { audioUrl }),
         ...(imageUrl !== undefined && { imageUrl }),
         ...(hints !== undefined && { hints }),
+        ...(explanation !== undefined && { explanation }),
+        ...(difficulty !== undefined && { difficulty }),
+        ...(xpReward !== undefined && { xpReward }),
+      },
+      include: {
+        options: { orderBy: { order: 'asc' } },
+        matchPairs: { orderBy: { order: 'asc' } },
+        wordBankItems: { orderBy: { correctPosition: 'asc' } },
+        conversationLines: { orderBy: { order: 'asc' } },
       },
     });
     res.json(exercise);
@@ -445,6 +535,183 @@ router.delete('/admin/exercises/:id', requireRole('admin'), async (req: Request,
   try {
     await prisma.exercise.delete({ where: { id: req.params.id as string } });
     res.json({ message: 'Exercise deleted' });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ─── Exercise Player ────────────────────────────────────────────
+
+// POST /api/courses/lessons/:lessonId/start — start exercise session
+router.post('/lessons/:lessonId/start', async (req: Request, res: Response) => {
+  try {
+    const auth = (req as AuthenticatedRequest).auth!;
+    const lessonId = req.params.lessonId as string;
+
+    const lesson = await prisma.lesson.findUnique({ where: { id: lessonId } });
+    if (!lesson) {
+      res.status(404).json({ error: 'Lesson not found' });
+      return;
+    }
+
+    const session = await prisma.exerciseSession.create({
+      data: { userId: auth.userId, lessonId },
+    });
+
+    const exercises = await prisma.exercise.findMany({
+      where: { lessonId },
+      orderBy: { order: 'asc' },
+      include: {
+        options: { orderBy: { order: 'asc' } },
+        matchPairs: { orderBy: { order: 'asc' } },
+        wordBankItems: { orderBy: { correctPosition: 'asc' } },
+        conversationLines: { orderBy: { order: 'asc' } },
+      },
+    });
+
+    res.status(201).json({ session, exercises });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST /api/courses/sessions/:sessionId/attempt — submit an exercise attempt
+router.post('/sessions/:sessionId/attempt', async (req: Request, res: Response) => {
+  try {
+    const auth = (req as AuthenticatedRequest).auth!;
+    const { exerciseId, userAnswer, isCorrect, timeTakenMs } = req.body;
+
+    if (!exerciseId || userAnswer === undefined || isCorrect === undefined) {
+      res.status(400).json({ error: 'exerciseId, userAnswer, isCorrect are required' });
+      return;
+    }
+
+    const session = await prisma.exerciseSession.findUnique({
+      where: { id: req.params.sessionId as string },
+    });
+    if (!session || session.userId !== auth.userId) {
+      res.status(404).json({ error: 'Session not found' });
+      return;
+    }
+    if (session.completed) {
+      res.status(400).json({ error: 'Session already completed' });
+      return;
+    }
+
+    const exercise = await prisma.exercise.findUnique({ where: { id: exerciseId } });
+    if (!exercise) {
+      res.status(404).json({ error: 'Exercise not found' });
+      return;
+    }
+
+    const xpEarned = isCorrect ? exercise.xpReward : 0;
+    const newCombo = isCorrect ? session.combo + 1 : 0;
+    const newHearts = isCorrect ? session.hearts : Math.max(0, session.hearts - 1);
+
+    const [attempt] = await prisma.$transaction([
+      prisma.exerciseAttempt.create({
+        data: {
+          sessionId: session.id,
+          exerciseId,
+          userAnswer,
+          isCorrect,
+          xpEarned,
+          timeTakenMs: timeTakenMs || null,
+        },
+      }),
+      prisma.exerciseSession.update({
+        where: { id: session.id },
+        data: {
+          combo: newCombo,
+          maxCombo: Math.max(session.maxCombo, newCombo),
+          totalXp: session.totalXp + xpEarned,
+          correctCount: session.correctCount + (isCorrect ? 1 : 0),
+          wrongCount: session.wrongCount + (isCorrect ? 0 : 1),
+          hearts: newHearts,
+        },
+      }),
+    ]);
+
+    res.status(201).json({
+      attempt,
+      session: {
+        hearts: newHearts,
+        combo: newCombo,
+        maxCombo: Math.max(session.maxCombo, newCombo),
+        totalXp: session.totalXp + xpEarned,
+        correctCount: session.correctCount + (isCorrect ? 1 : 0),
+        wrongCount: session.wrongCount + (isCorrect ? 0 : 1),
+      },
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST /api/courses/sessions/:sessionId/complete — complete exercise session
+router.post('/sessions/:sessionId/complete', async (req: Request, res: Response) => {
+  try {
+    const auth = (req as AuthenticatedRequest).auth!;
+
+    const session = await prisma.exerciseSession.findUnique({
+      where: { id: req.params.sessionId as string },
+    });
+    if (!session || session.userId !== auth.userId) {
+      res.status(404).json({ error: 'Session not found' });
+      return;
+    }
+
+    const updated = await prisma.exerciseSession.update({
+      where: { id: session.id },
+      data: { completed: true, completedAt: new Date() },
+      include: { attempts: true },
+    });
+
+    // Award XP to user progress
+    if (updated.totalXp > 0) {
+      await awardXP(auth.userId, updated.totalXp);
+    }
+
+    // Mark lesson progress
+    await prisma.userLessonProgress.upsert({
+      where: { userId_lessonId: { userId: auth.userId, lessonId: session.lessonId } },
+      create: {
+        userId: auth.userId,
+        lessonId: session.lessonId,
+        completed: true,
+        score: updated.correctCount / Math.max(1, updated.correctCount + updated.wrongCount),
+        xpEarned: updated.totalXp,
+        completedAt: new Date(),
+      },
+      update: {
+        completed: true,
+        score: updated.correctCount / Math.max(1, updated.correctCount + updated.wrongCount),
+        xpEarned: updated.totalXp,
+        completedAt: new Date(),
+      },
+    });
+
+    res.json(updated);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// GET /api/courses/sessions/:sessionId — get session with attempts
+router.get('/sessions/:sessionId', async (req: Request, res: Response) => {
+  try {
+    const auth = (req as AuthenticatedRequest).auth!;
+
+    const session = await prisma.exerciseSession.findUnique({
+      where: { id: req.params.sessionId as string },
+      include: { attempts: { orderBy: { createdAt: 'asc' } } },
+    });
+    if (!session || session.userId !== auth.userId) {
+      res.status(404).json({ error: 'Session not found' });
+      return;
+    }
+
+    res.json(session);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }

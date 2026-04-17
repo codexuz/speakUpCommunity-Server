@@ -74,6 +74,11 @@ enum ExerciseType {
     listenAndChoose
     roleplay
     pronunciation
+    matchPairs
+    reorderWords
+    translateSentence
+    tapWhatYouHear
+    completeConversation
 
     @@map("exercise_type")
 }
@@ -111,6 +116,7 @@ model User {
     reputation            UserReputation?
     challengeSubmissions  ChallengeSubmission[]
     lessonProgress        UserLessonProgress[]
+    exerciseSessions      ExerciseSession[]
 
     @@map("users")
 }
@@ -557,30 +563,148 @@ model Lesson {
     order    Int
     xpReward Int    @default(10) @map("xp_reward")
 
-    unit      CourseUnit           @relation(fields: [unitId], references: [id], onDelete: Cascade)
-    exercises Exercise[]
-    progress  UserLessonProgress[]
+    unit             CourseUnit           @relation(fields: [unitId], references: [id], onDelete: Cascade)
+    exercises        Exercise[]
+    progress         UserLessonProgress[]
+    exerciseSessions ExerciseSession[]
 
     @@index([unitId])
     @@map("lessons")
 }
 
 model Exercise {
-    id            String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-    lessonId      String       @map("lesson_id") @db.Uuid
-    type          ExerciseType
-    order         Int
-    prompt        String
-    correctAnswer String?      @map("correct_answer")
-    options       Json?        @db.JsonB // [{text, isCorrect}]
-    audioUrl      String?      @map("audio_url")
-    imageUrl      String?      @map("image_url")
-    hints         Json?        @db.JsonB // progressive hints
+    id               String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+    lessonId         String       @map("lesson_id") @db.Uuid
+    type             ExerciseType
+    order            Int
+    prompt           String // Instruction text shown to the user
+    promptAudio      String?      @map("prompt_audio") // Audio for the prompt itself
+    correctAnswer    String?      @map("correct_answer") // Simple text answer
+    sentenceTemplate String?      @map("sentence_template") // "I ___ to school yesterday" for fill-in-blank
+    targetText       String?      @map("target_text") // Target text for pronunciation / listen-repeat
+    audioUrl         String?      @map("audio_url") // Reference audio clip
+    imageUrl         String?      @map("image_url") // Illustration / context image
+    hints            Json?        @db.JsonB // ["hint1", "hint2"] progressive hints
+    explanation      String? // Shown after answering (why correct/wrong)
+    difficulty       Int          @default(1) // 1=easy, 2=medium, 3=hard
+    xpReward         Int          @default(10) @map("xp_reward")
 
-    lesson Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+    lesson            Lesson                     @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+    options           ExerciseOption[]
+    matchPairs        ExerciseMatchPair[]
+    wordBankItems     ExerciseWordBankItem[]
+    conversationLines ExerciseConversationLine[]
+    attempts          ExerciseAttempt[]
 
     @@index([lessonId])
     @@map("exercises")
+}
+
+// Options for multipleChoice, listenAndChoose, tapWhatYouHear, fillInBlank (dropdown)
+model ExerciseOption {
+    id         String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+    exerciseId String  @map("exercise_id") @db.Uuid
+    text       String
+    audioUrl   String? @map("audio_url")
+    imageUrl   String? @map("image_url")
+    isCorrect  Boolean @default(false) @map("is_correct")
+    order      Int     @default(0)
+
+    exercise Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+
+    @@index([exerciseId])
+    @@map("exercise_options")
+}
+
+// Pairs for matchPairs exercise type
+model ExerciseMatchPair {
+    id         String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+    exerciseId String  @map("exercise_id") @db.Uuid
+    leftText   String  @map("left_text")
+    leftAudio  String? @map("left_audio")
+    rightText  String  @map("right_text")
+    rightAudio String? @map("right_audio")
+    order      Int     @default(0)
+
+    exercise Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+
+    @@index([exerciseId])
+    @@map("exercise_match_pairs")
+}
+
+// Word bank items for reorderWords and translateSentence
+model ExerciseWordBankItem {
+    id              String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+    exerciseId      String  @map("exercise_id") @db.Uuid
+    text            String
+    correctPosition Int     @map("correct_position") // 0-based index in correct order
+    isDistractor    Boolean @default(false) @map("is_distractor") // Extra wrong word
+
+    exercise Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+
+    @@index([exerciseId])
+    @@map("exercise_word_bank_items")
+}
+
+// Dialogue lines for completeConversation and roleplay
+model ExerciseConversationLine {
+    id              String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+    exerciseId      String  @map("exercise_id") @db.Uuid
+    speaker         String // "user" | "bot" | character name
+    text            String // Line text (blank for user-input lines)
+    audioUrl        String? @map("audio_url")
+    isUserTurn      Boolean @default(false) @map("is_user_turn")
+    acceptedAnswers Json?   @map("accepted_answers") @db.JsonB // ["answer1", "answer2"]
+    order           Int
+
+    exercise Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+
+    @@index([exerciseId])
+    @@map("exercise_conversation_lines")
+}
+
+// ─── Exercise Player ────────────────────────────────────────────
+
+model ExerciseSession {
+    id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+    userId       String    @map("user_id") @db.Uuid
+    lessonId     String    @map("lesson_id") @db.Uuid
+    hearts       Int       @default(5) // Lives remaining
+    combo        Int       @default(0) // Current correct streak
+    maxCombo     Int       @default(0) @map("max_combo")
+    totalXp      Int       @default(0) @map("total_xp")
+    correctCount Int       @default(0) @map("correct_count")
+    wrongCount   Int       @default(0) @map("wrong_count")
+    completed    Boolean   @default(false)
+    startedAt    DateTime  @default(now()) @map("started_at") @db.Timestamptz
+    completedAt  DateTime? @map("completed_at") @db.Timestamptz
+
+    user     User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+    lesson   Lesson            @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+    attempts ExerciseAttempt[]
+
+    @@index([userId])
+    @@index([lessonId])
+    @@index([userId, lessonId])
+    @@map("exercise_sessions")
+}
+
+model ExerciseAttempt {
+    id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+    sessionId   String   @map("session_id") @db.Uuid
+    exerciseId  String   @map("exercise_id") @db.Uuid
+    userAnswer  Json     @map("user_answer") @db.JsonB // text, selected option IDs, pair matches, word order, audio URL
+    isCorrect   Boolean  @map("is_correct")
+    xpEarned    Int      @default(0) @map("xp_earned")
+    timeTakenMs Int?     @map("time_taken_ms")
+    createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+    session  ExerciseSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+    exercise Exercise        @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+
+    @@index([sessionId])
+    @@index([exerciseId])
+    @@map("exercise_attempts")
 }
 
 model UserLessonProgress {
