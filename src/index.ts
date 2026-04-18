@@ -60,6 +60,14 @@ app.use(
   })
 );
 app.use(express.json());
+
+// Telegram bot webhook — mounted before the rate limiter so Telegram
+// server calls are not throttled and don't consume user quotas.
+if (process.env.TELEGRAM_BOT_TOKEN) {
+  const webhookPath = `/api/telegram-webhook/${process.env.TELEGRAM_BOT_TOKEN}`;
+  app.use(webhookPath, createWebhookHandler());
+}
+
 app.use(defaultLimiter);
 
 app.use('/api/auth', authLimiter, authRoutes);
@@ -82,12 +90,6 @@ app.use('/api/speech', speechRoutes);
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok' });
 });
-
-// Telegram bot webhook
-if (process.env.TELEGRAM_BOT_TOKEN) {
-  const webhookPath = `/api/telegram-webhook/${process.env.TELEGRAM_BOT_TOKEN}`;
-  app.use(webhookPath, createWebhookHandler());
-}
 
 const useHttps = Boolean(SSL_KEY_FILE && SSL_CERT_FILE);
 
