@@ -54,6 +54,9 @@ function registerHandlers(bot: Bot) {
         return;
       }
 
+      // Unlink any previous user bound to this Telegram chat
+      await unlinkTelegramChat(chatId);
+
       await prisma.user.update({
         where: { id: user.id },
         data: { telegramChatId: chatId },
