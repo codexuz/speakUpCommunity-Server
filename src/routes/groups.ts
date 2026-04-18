@@ -517,6 +517,12 @@ router.post('/join', async (req: Request, res: Response) => {
       data: { groupId: group.id, userId: auth.userId, role: 'student' },
     });
 
+    // Auto-approve any pending join request for this group
+    await prisma.groupJoinRequest.updateMany({
+      where: { groupId: group.id, userId: auth.userId, status: 'pending' },
+      data: { status: 'approved' },
+    });
+
     res.json(group);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -657,15 +663,25 @@ router.post('/:id/approve-join/:requestId', async (req: Request, res: Response) 
 
     const role = req.body.role === 'teacher' ? 'teacher' : 'student';
 
-    await prisma.$transaction([
-      prisma.groupJoinRequest.update({
+    // User may have already joined via referral code while request was pending
+    const existingMember = await getGroupMembership(result.group.id, joinRequest.userId);
+
+    if (existingMember) {
+      await prisma.groupJoinRequest.update({
         where: { id: joinRequest.id },
         data: { status: 'approved' },
-      }),
-      prisma.groupMember.create({
-        data: { groupId: result.group.id, userId: joinRequest.userId, role },
-      }),
-    ]);
+      });
+    } else {
+      await prisma.$transaction([
+        prisma.groupJoinRequest.update({
+          where: { id: joinRequest.id },
+          data: { status: 'approved' },
+        }),
+        prisma.groupMember.create({
+          data: { groupId: result.group.id, userId: joinRequest.userId, role },
+        }),
+      ]);
+    }
 
     sseManager.sendToUser(joinRequest.userId, 'join-approved', {
       groupId: result.group.id,

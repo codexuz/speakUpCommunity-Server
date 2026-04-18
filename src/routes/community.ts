@@ -64,9 +64,11 @@ router.get('/feed', async (req: Request, res: Response) => {
       }
 
       case 'top': {
-        total = await prisma.testSession.count({ where: baseWhere });
+        const examType = req.query.examType === 'ielts' ? 'ielts' as const : 'cefr' as const;
+        const topWhere = { ...baseWhere, examType, scoreAvg: { not: null } };
+        total = await prisma.testSession.count({ where: topWhere });
         sessions = await prisma.testSession.findMany({
-          where: baseWhere,
+          where: topWhere,
           orderBy: [
             { scoreAvg: { sort: 'desc', nulls: 'last' } },
             { likes: 'desc' },
