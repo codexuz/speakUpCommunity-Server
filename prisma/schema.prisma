@@ -592,19 +592,19 @@ model Lesson {
 }
 
 model Lecture {
-    id          String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-    lessonId    String             @map("lesson_id") @db.Uuid
-    contentType LectureContentType @map("content_type")
-    title       String
-    order       Int                @default(0)
-    textBody    String?            @map("text_body") // Rich text / markdown content
-    mediaUrl    String?            @map("media_url") // Audio or video URL
-    thumbnailUrl String?           @map("thumbnail_url") // Preview image for video/audio
-    durationSec Int?               @map("duration_sec") // Duration for audio/video in seconds
-    createdAt   DateTime           @default(now()) @map("created_at") @db.Timestamptz
-    updatedAt   DateTime           @updatedAt @map("updated_at") @db.Timestamptz
+    id           String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+    lessonId     String             @map("lesson_id") @db.Uuid
+    contentType  LectureContentType @map("content_type")
+    title        String
+    order        Int                @default(0)
+    textBody     String?            @map("text_body") // Rich text / markdown content
+    mediaUrl     String?            @map("media_url") // Audio or video URL
+    thumbnailUrl String?            @map("thumbnail_url") // Preview image for video/audio
+    durationSec  Int?               @map("duration_sec") // Duration for audio/video in seconds
+    createdAt    DateTime           @default(now()) @map("created_at") @db.Timestamptz
+    updatedAt    DateTime           @updatedAt @map("updated_at") @db.Timestamptz
 
-    lesson      Lesson              @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+    lesson      Lesson                @relation(fields: [lessonId], references: [id], onDelete: Cascade)
     attachments LectureAttachment[]
     progress    UserLectureProgress[]
 
