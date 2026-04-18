@@ -239,6 +239,27 @@ router.post('/lessons/:lessonId/complete', async (req: Request, res: Response) =
 
 // ─── Admin: manage courses ──────────────────────────────────────
 
+// GET /api/courses/admin/all — list all courses (published & unpublished)
+router.get('/admin/all', requireRole('admin'), async (_req: Request, res: Response) => {
+  try {
+    const courses = await prisma.course.findMany({
+      orderBy: { order: 'asc' },
+      include: {
+        units: {
+          orderBy: { order: 'asc' },
+          include: {
+            _count: { select: { lessons: true } },
+          },
+        },
+      },
+    });
+
+    res.json({ data: courses });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // POST /api/courses/admin/create — create course
 router.post('/admin/create', requireRole('admin'), courseImageUpload.single('image'), async (req: Request, res: Response) => {
   try {
