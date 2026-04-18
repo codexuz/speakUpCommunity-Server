@@ -66,6 +66,22 @@ enum ExamType {
     @@map("exam_type")
 }
 
+enum LessonType {
+    practice
+    lecture
+    mixed
+
+    @@map("lesson_type")
+}
+
+enum LectureContentType {
+    text
+    audio
+    video
+
+    @@map("lecture_content_type")
+}
+
 enum ExerciseType {
     listenRepeat
     speakTheAnswer
@@ -117,6 +133,7 @@ model User {
     challengeSubmissions  ChallengeSubmission[]
     lessonProgress        UserLessonProgress[]
     exerciseSessions      ExerciseSession[]
+    lectureProgress       UserLectureProgress[]
 
     @@map("users")
 }
@@ -557,19 +574,74 @@ model CourseUnit {
 }
 
 model Lesson {
-    id       String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-    unitId   String @map("unit_id") @db.Uuid
+    id       String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+    unitId   String     @map("unit_id") @db.Uuid
     title    String
+    type     LessonType @default(practice)
     order    Int
-    xpReward Int    @default(10) @map("xp_reward")
+    xpReward Int        @default(10) @map("xp_reward")
 
     unit             CourseUnit           @relation(fields: [unitId], references: [id], onDelete: Cascade)
     exercises        Exercise[]
+    lectures         Lecture[]
     progress         UserLessonProgress[]
     exerciseSessions ExerciseSession[]
 
     @@index([unitId])
     @@map("lessons")
+}
+
+model Lecture {
+    id          String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+    lessonId    String             @map("lesson_id") @db.Uuid
+    contentType LectureContentType @map("content_type")
+    title       String
+    order       Int                @default(0)
+    textBody    String?            @map("text_body") // Rich text / markdown content
+    mediaUrl    String?            @map("media_url") // Audio or video URL
+    thumbnailUrl String?           @map("thumbnail_url") // Preview image for video/audio
+    durationSec Int?               @map("duration_sec") // Duration for audio/video in seconds
+    createdAt   DateTime           @default(now()) @map("created_at") @db.Timestamptz
+    updatedAt   DateTime           @updatedAt @map("updated_at") @db.Timestamptz
+
+    lesson      Lesson              @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+    attachments LectureAttachment[]
+    progress    UserLectureProgress[]
+
+    @@index([lessonId])
+    @@map("lectures")
+}
+
+model LectureAttachment {
+    id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+    lectureId String   @map("lecture_id") @db.Uuid
+    url       String
+    fileName  String   @map("file_name")
+    fileSize  Int      @map("file_size")
+    mimeType  String   @map("mime_type")
+    order     Int      @default(0)
+    createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+    lecture Lecture @relation(fields: [lectureId], references: [id], onDelete: Cascade)
+
+    @@index([lectureId])
+    @@map("lecture_attachments")
+}
+
+model UserLectureProgress {
+    id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+    userId      String    @map("user_id") @db.Uuid
+    lectureId   String    @map("lecture_id") @db.Uuid
+    completed   Boolean   @default(false)
+    progressPct Int       @default(0) @map("progress_pct") // 0-100 playback/read progress
+    completedAt DateTime? @map("completed_at") @db.Timestamptz
+
+    user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+    lecture Lecture @relation(fields: [lectureId], references: [id], onDelete: Cascade)
+
+    @@unique([userId, lectureId])
+    @@index([userId])
+    @@map("user_lecture_progress")
 }
 
 model Exercise {

@@ -24,6 +24,11 @@ const courseImageUpload = multer({
   },
 });
 
+const lectureMediaUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 100 * 1024 * 1024 }, // 100MB for video/audio
+});
+
 router.use(authenticateRequest);
 
 // ─── Public: Browse courses ─────────────────────────────────────
@@ -112,7 +117,7 @@ router.get('/:id', async (req: Request, res: Response) => {
           include: {
             lessons: {
               orderBy: { order: 'asc' },
-              select: { id: true, title: true, order: true, xpReward: true },
+              select: { id: true, title: true, type: true, order: true, xpReward: true },
             },
           },
         },
@@ -156,6 +161,10 @@ router.get('/lessons/:lessonId', async (req: Request, res: Response) => {
     const lesson = await prisma.lesson.findUnique({
       where: { id: req.params.lessonId as string },
       include: {
+        lectures: {
+          orderBy: { order: 'asc' },
+          include: { attachments: { orderBy: { order: 'asc' } } },
+        },
         exercises: {
           orderBy: { order: 'asc' },
           include: {
@@ -377,13 +386,13 @@ router.delete('/admin/units/:id', requireRole('admin'), async (req: Request, res
 // POST /api/courses/admin/lessons — create lesson
 router.post('/admin/lessons', requireRole('admin'), async (req: Request, res: Response) => {
   try {
-    const { unitId, title, order, xpReward } = req.body;
+    const { unitId, title, type, order, xpReward } = req.body;
     if (!unitId || !title) {
       res.status(400).json({ error: 'unitId and title are required' });
       return;
     }
     const lesson = await prisma.lesson.create({
-      data: { unitId, title, order: order ?? 0, xpReward: xpReward ?? 10 },
+      data: { unitId, title, type: type ?? 'practice', order: order ?? 0, xpReward: xpReward ?? 10 },
     });
     res.status(201).json(lesson);
   } catch (error: any) {
@@ -394,11 +403,12 @@ router.post('/admin/lessons', requireRole('admin'), async (req: Request, res: Re
 // PUT /api/courses/admin/lessons/:id — update lesson
 router.put('/admin/lessons/:id', requireRole('admin'), async (req: Request, res: Response) => {
   try {
-    const { title, order, xpReward } = req.body;
+    const { title, type, order, xpReward } = req.body;
     const lesson = await prisma.lesson.update({
       where: { id: req.params.id as string },
       data: {
         ...(title !== undefined && { title }),
+        ...(type !== undefined && { type }),
         ...(order !== undefined && { order }),
         ...(xpReward !== undefined && { xpReward }),
       },
@@ -414,6 +424,301 @@ router.delete('/admin/lessons/:id', requireRole('admin'), async (req: Request, r
   try {
     await prisma.lesson.delete({ where: { id: req.params.id as string } });
     res.json({ message: 'Lesson deleted' });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ─── Admin: manage lectures ─────────────────────────────────────
+
+// POST /api/courses/admin/lectures — create lecture (with optional media upload)
+router.post(
+  '/admin/lectures',
+  requireRole('admin'),
+  lectureMediaUpload.fields([
+    { name: 'media', maxCount: 1 },
+    { name: 'thumbnail', maxCount: 1 },
+    { name: 'attachments', maxCount: 10 },
+  ]),
+  async (req: Request, res: Response) => {
+    try {
+      const { lessonId, contentType, title, order, textBody, mediaUrl, thumbnailUrl, durationSec } = req.body;
+      if (!lessonId || !contentType || !title) {
+        res.status(400).json({ error: 'lessonId, contentType, title are required' });
+        return;
+      }
+
+      const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
+
+      // Upload media file if provided
+      let resolvedMediaUrl = mediaUrl || null;
+      if (files?.media?.[0]) {
+        const f = files.media[0];
+        const ext = f.originalname.split('.').pop() || 'bin';
+        const fileName = `courses/lectures/${uuidv4()}.${ext}`;
+        resolvedMediaUrl = await uploadFile(fileName, f.buffer, f.mimetype);
+      }
+
+      // Upload thumbnail if provided
+      let resolvedThumbnailUrl = thumbnailUrl || null;
+      if (files?.thumbnail?.[0]) {
+        const f = files.thumbnail[0];
+        const ext = f.originalname.split('.').pop() || 'jpg';
+        const fileName = `courses/lectures/thumbs/${uuidv4()}.${ext}`;
+        resolvedThumbnailUrl = await uploadFile(fileName, f.buffer, f.mimetype);
+      }
+
+      // Upload attachment files
+      const attachmentData: { url: string; fileName: string; fileSize: number; mimeType: string; order: number }[] = [];
+      if (files?.attachments) {
+        for (let i = 0; i < files.attachments.length; i++) {
+          const f = files.attachments[i];
+          const ext = f.originalname.split('.').pop() || 'bin';
+          const storageName = `courses/lectures/files/${uuidv4()}.${ext}`;
+          const url = await uploadFile(storageName, f.buffer, f.mimetype);
+          attachmentData.push({
+            url,
+            fileName: f.originalname,
+            fileSize: f.size,
+            mimeType: f.mimetype,
+            order: i,
+          });
+        }
+      }
+
+      const lecture = await prisma.lecture.create({
+        data: {
+          lessonId,
+          contentType,
+          title,
+          order: order ? parseInt(order) : 0,
+          textBody: textBody || null,
+          mediaUrl: resolvedMediaUrl,
+          thumbnailUrl: resolvedThumbnailUrl,
+          durationSec: durationSec ? parseInt(durationSec) : null,
+          ...(attachmentData.length && {
+            attachments: { createMany: { data: attachmentData } },
+          }),
+        },
+        include: { attachments: { orderBy: { order: 'asc' } } },
+      });
+
+      res.status(201).json(lecture);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  },
+);
+
+// PUT /api/courses/admin/lectures/:id — update lecture
+router.put(
+  '/admin/lectures/:id',
+  requireRole('admin'),
+  lectureMediaUpload.fields([
+    { name: 'media', maxCount: 1 },
+    { name: 'thumbnail', maxCount: 1 },
+    { name: 'attachments', maxCount: 10 },
+  ]),
+  async (req: Request, res: Response) => {
+    try {
+      const { contentType, title, order, textBody, mediaUrl, thumbnailUrl, durationSec } = req.body;
+      const lectureId = req.params.id as string;
+      const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
+
+      let resolvedMediaUrl: string | undefined;
+      if (files?.media?.[0]) {
+        const f = files.media[0];
+        const ext = f.originalname.split('.').pop() || 'bin';
+        const fileName = `courses/lectures/${uuidv4()}.${ext}`;
+        resolvedMediaUrl = await uploadFile(fileName, f.buffer, f.mimetype);
+      } else if (mediaUrl !== undefined) {
+        resolvedMediaUrl = mediaUrl;
+      }
+
+      let resolvedThumbnailUrl: string | undefined;
+      if (files?.thumbnail?.[0]) {
+        const f = files.thumbnail[0];
+        const ext = f.originalname.split('.').pop() || 'jpg';
+        const fileName = `courses/lectures/thumbs/${uuidv4()}.${ext}`;
+        resolvedThumbnailUrl = await uploadFile(fileName, f.buffer, f.mimetype);
+      } else if (thumbnailUrl !== undefined) {
+        resolvedThumbnailUrl = thumbnailUrl;
+      }
+
+      // Replace attachments if new ones uploaded
+      if (files?.attachments?.length) {
+        await prisma.lectureAttachment.deleteMany({ where: { lectureId } });
+        const attachmentData = [];
+        for (let i = 0; i < files.attachments.length; i++) {
+          const f = files.attachments[i];
+          const ext = f.originalname.split('.').pop() || 'bin';
+          const storageName = `courses/lectures/files/${uuidv4()}.${ext}`;
+          const url = await uploadFile(storageName, f.buffer, f.mimetype);
+          attachmentData.push({
+            lectureId,
+            url,
+            fileName: f.originalname,
+            fileSize: f.size,
+            mimeType: f.mimetype,
+            order: i,
+          });
+        }
+        await prisma.lectureAttachment.createMany({ data: attachmentData });
+      }
+
+      const lecture = await prisma.lecture.update({
+        where: { id: lectureId },
+        data: {
+          ...(contentType !== undefined && { contentType }),
+          ...(title !== undefined && { title }),
+          ...(order !== undefined && { order: typeof order === 'string' ? parseInt(order) : order }),
+          ...(textBody !== undefined && { textBody }),
+          ...(resolvedMediaUrl !== undefined && { mediaUrl: resolvedMediaUrl }),
+          ...(resolvedThumbnailUrl !== undefined && { thumbnailUrl: resolvedThumbnailUrl }),
+          ...(durationSec !== undefined && { durationSec: durationSec ? parseInt(durationSec) : null }),
+        },
+        include: { attachments: { orderBy: { order: 'asc' } } },
+      });
+
+      res.json(lecture);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  },
+);
+
+// DELETE /api/courses/admin/lectures/:id — delete lecture
+router.delete('/admin/lectures/:id', requireRole('admin'), async (req: Request, res: Response) => {
+  try {
+    await prisma.lecture.delete({ where: { id: req.params.id as string } });
+    res.json({ message: 'Lecture deleted' });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST /api/courses/admin/lectures/:id/attachments — add attachments to existing lecture
+router.post(
+  '/admin/lectures/:id/attachments',
+  requireRole('admin'),
+  lectureMediaUpload.array('files', 10),
+  async (req: Request, res: Response) => {
+    try {
+      const lectureId = req.params.id as string;
+      const files = req.files as Express.Multer.File[];
+      if (!files?.length) {
+        res.status(400).json({ error: 'No files provided' });
+        return;
+      }
+
+      const existing = await prisma.lectureAttachment.count({ where: { lectureId } });
+
+      const attachmentData = [];
+      for (let i = 0; i < files.length; i++) {
+        const f = files[i];
+        const ext = f.originalname.split('.').pop() || 'bin';
+        const storageName = `courses/lectures/files/${uuidv4()}.${ext}`;
+        const url = await uploadFile(storageName, f.buffer, f.mimetype);
+        attachmentData.push({
+          lectureId,
+          url,
+          fileName: f.originalname,
+          fileSize: f.size,
+          mimeType: f.mimetype,
+          order: existing + i,
+        });
+      }
+
+      await prisma.lectureAttachment.createMany({ data: attachmentData });
+
+      const attachments = await prisma.lectureAttachment.findMany({
+        where: { lectureId },
+        orderBy: { order: 'asc' },
+      });
+
+      res.status(201).json(attachments);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  },
+);
+
+// DELETE /api/courses/admin/lecture-attachments/:id — delete single attachment
+router.delete('/admin/lecture-attachments/:id', requireRole('admin'), async (req: Request, res: Response) => {
+  try {
+    await prisma.lectureAttachment.delete({ where: { id: req.params.id as string } });
+    res.json({ message: 'Attachment deleted' });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ─── Student: lecture progress ──────────────────────────────────
+
+// POST /api/courses/lectures/:lectureId/progress — update lecture progress
+router.post('/lectures/:lectureId/progress', async (req: Request, res: Response) => {
+  try {
+    const auth = (req as AuthenticatedRequest).auth!;
+    const lectureId = req.params.lectureId as string;
+    const { progressPct } = req.body; // 0-100
+
+    const lecture = await prisma.lecture.findUnique({ where: { id: lectureId } });
+    if (!lecture) {
+      res.status(404).json({ error: 'Lecture not found' });
+      return;
+    }
+
+    const pct = Math.min(100, Math.max(0, parseInt(progressPct) || 0));
+    const completed = pct >= 100;
+
+    const progress = await prisma.userLectureProgress.upsert({
+      where: { userId_lectureId: { userId: auth.userId, lectureId } },
+      create: {
+        userId: auth.userId,
+        lectureId,
+        progressPct: pct,
+        completed,
+        completedAt: completed ? new Date() : null,
+      },
+      update: {
+        progressPct: pct,
+        completed,
+        completedAt: completed ? new Date() : undefined,
+      },
+    });
+
+    res.json(progress);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// GET /api/courses/lectures/:lectureId — get single lecture with attachments
+router.get('/lectures/:lectureId', async (req: Request, res: Response) => {
+  try {
+    const auth = (req as AuthenticatedRequest).auth!;
+
+    const lecture = await prisma.lecture.findUnique({
+      where: { id: req.params.lectureId as string },
+      include: {
+        attachments: { orderBy: { order: 'asc' } },
+        lesson: {
+          select: { id: true, title: true, unit: { select: { course: { select: { id: true, title: true } } } } },
+        },
+      },
+    });
+
+    if (!lecture) {
+      res.status(404).json({ error: 'Lecture not found' });
+      return;
+    }
+
+    // Attach user progress
+    const progress = await prisma.userLectureProgress.findUnique({
+      where: { userId_lectureId: { userId: auth.userId, lectureId: lecture.id } },
+    });
+
+    res.json({ ...lecture, userProgress: progress || null });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }

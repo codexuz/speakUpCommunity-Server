@@ -1,10 +1,10 @@
-# Courses & Duolingo-style Exercises — Complete Guide
+# Courses, Lectures & Exercises — Complete Guide
 
 > **API base:** `/api/courses`
 > **Auth:** All endpoints require `Authorization: Bearer <token>`
-> **Roles:** Exercise creation requires `admin` role. Students access player endpoints.
+> **Roles:** Lecture/Exercise creation requires `admin` role. Students access player and lecture viewer endpoints.
 
-This document covers the full course/exercise system: data model, all API endpoints, payload examples for every exercise type, the exercise builder UI for teachers/admins, and the exercise player UI for students.
+This document covers the full course system: data model, all API endpoints (lectures + exercises), payload examples, and UI/UX guidance.
 
 ---
 
@@ -12,15 +12,20 @@ This document covers the full course/exercise system: data model, all API endpoi
 
 1. [Architecture Overview](#1-architecture-overview)
 2. [Data Model](#2-data-model)
-3. [Exercise Types Reference](#3-exercise-types-reference)
-4. [API Endpoints — Browse & Progress](#4-api-endpoints--browse--progress)
-5. [API Endpoints — Admin Builder](#5-api-endpoints--admin-builder)
-6. [API Endpoints — Exercise Player](#6-api-endpoints--exercise-player)
-7. [TypeScript Types](#7-typescript-types)
-8. [Exercise Builder UI/UX (Teacher/Admin)](#8-exercise-builder-uiux-teacheradmin)
-9. [Exercise Player UI/UX (Student)](#9-exercise-player-uiux-student)
-10. [Course Map UI/UX](#10-course-map-uiux)
-11. [Expo Implementation Notes](#11-expo-implementation-notes)
+3. [Lecture Types Reference](#3-lecture-types-reference)
+4. [Exercise Types Reference](#4-exercise-types-reference)
+5. [API Endpoints — Browse & Progress](#5-api-endpoints--browse--progress)
+6. [API Endpoints — Admin Builder (Lectures)](#6-api-endpoints--admin-builder-lectures)
+7. [API Endpoints — Admin Builder (Exercises)](#7-api-endpoints--admin-builder-exercises)
+8. [API Endpoints — Lecture Viewer (Student)](#8-api-endpoints--lecture-viewer-student)
+9. [API Endpoints — Exercise Player](#9-api-endpoints--exercise-player)
+10. [TypeScript Types](#10-typescript-types)
+11. [Lecture Builder UI/UX (Admin)](#11-lecture-builder-uiux-admin)
+12. [Lecture Viewer UI/UX (Student)](#12-lecture-viewer-uiux-student)
+13. [Exercise Builder UI/UX (Teacher/Admin)](#13-exercise-builder-uiux-teacheradmin)
+14. [Exercise Player UI/UX (Student)](#14-exercise-player-uiux-student)
+15. [Course Map UI/UX](#15-course-map-uiux)
+16. [Expo Implementation Notes](#16-expo-implementation-notes)
 
 ---
 
@@ -29,7 +34,9 @@ This document covers the full course/exercise system: data model, all API endpoi
 ```
 Course
  └── CourseUnit (ordered)
-      └── Lesson (ordered, xpReward)
+      └── Lesson (ordered, type: practice|lecture|mixed, xpReward)
+           ├── Lecture (ordered, typed: text|audio|video)
+           │    └── LectureAttachment[] — downloadable files (PDF, docs, etc.)
            └── Exercise (ordered, typed)
                 ├── ExerciseOption[]        — for choice-based types
                 ├── ExerciseMatchPair[]     — for match-pairs type
@@ -37,13 +44,17 @@ Course
                 └── ExerciseConversationLine[] — for dialogue types
 ```
 
+**Lesson types:**
+- `practice` — exercises only (current default, backward-compatible)
+- `lecture` — learning content only (text articles, audio, video + file attachments)
+- `mixed` — lecture content followed by practice exercises
+
 **Player flow:**
 
 ```
-Start Session → [Exercise 1] → Submit Attempt → [Exercise 2] → ... → Complete Session
-     ↓                              ↓
-ExerciseSession              ExerciseAttempt (per exercise)
-(hearts, combo, xp)         (userAnswer, isCorrect, xpEarned)
+Lecture lesson:   Open → [Lecture 1] → [Lecture 2] → Mark Read (progress 100%)
+Practice lesson:  Start Session → [Exercise 1] → Submit → ... → Complete Session
+Mixed lesson:     [Lectures] → [Exercises] → Complete
 ```
 
 ---
@@ -58,8 +69,28 @@ ExerciseSession              ExerciseAttempt (per exercise)
 | `Course.isPublished` | `boolean` | Only published courses visible to students |
 | `Course.order` | `int` | Display order on course list |
 | `CourseUnit.order` | `int` | Order within the course |
+| `Lesson.type` | `LessonType` | `practice` (default), `lecture`, or `mixed` |
 | `Lesson.order` | `int` | Order within the unit |
 | `Lesson.xpReward` | `int` | XP earned on first completion (default 10) |
+
+### Lecture fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `contentType` | `LectureContentType` | `text`, `audio`, or `video` |
+| `title` | `string` | Lecture section title |
+| `order` | `int` | Display sequence within the lesson |
+| `textBody` | `string?` | Rich text / markdown content (for `text` type) |
+| `mediaUrl` | `string?` | Audio or video URL (for `audio`/`video` types) |
+| `thumbnailUrl` | `string?` | Preview image for audio/video player |
+| `durationSec` | `int?` | Duration in seconds for audio/video |
+
+### Lecture child models
+
+| Model | Fields | Description |
+|-------|--------|-------------|
+| `LectureAttachment` | `url`, `fileName`, `fileSize`, `mimeType`, `order` | Downloadable files (PDF, docs, slides, etc.) |
+| `UserLectureProgress` | `completed`, `progressPct`, `completedAt` | Per-user read/watch progress (0-100%) |
 
 ### Exercise fields
 
@@ -341,13 +372,14 @@ List published courses with user progress.
 ```
 
 ### `GET /api/courses/:id`
-Course detail with units, lessons, and per-lesson progress.
+Course detail with units, lessons (including `type` field), and per-lesson progress.
 
 **Response includes per-lesson:**
 ```json
 {
   "id": "lesson-uuid",
   "title": "At the Airport",
+  "type": "mixed",
   "order": 3,
   "xpReward": 15,
   "completed": true,
@@ -357,9 +389,9 @@ Course detail with units, lessons, and per-lesson progress.
 ```
 
 ### `GET /api/courses/lessons/:lessonId`
-Lesson detail with all exercises and their structured data.
+Lesson detail with all lectures (+ attachments) and exercises.
 
-**Response:** Full lesson object with exercises including `options[]`, `matchPairs[]`, `wordBankItems[]`, and `conversationLines[]`.
+**Response:** Full lesson object with `lectures[]` (each with `attachments[]`) and `exercises[]` (each with `options[]`, `matchPairs[]`, `wordBankItems[]`, `conversationLines[]`).
 
 ### `POST /api/courses/lessons/:lessonId/complete`
 Mark a lesson as completed (legacy — prefer using exercise session flow).
@@ -392,9 +424,63 @@ All admin endpoints require `admin` role.
 
 | Method | Path | Body |
 |--------|------|------|
-| `POST` | `/api/courses/admin/lessons` | `{ unitId, title, order?, xpReward? }` |
-| `PUT` | `/api/courses/admin/lessons/:id` | `{ title?, order?, xpReward? }` |
+| `POST` | `/api/courses/admin/lessons` | `{ unitId, title, type?, order?, xpReward? }` |
+| `PUT` | `/api/courses/admin/lessons/:id` | `{ title?, type?, order?, xpReward? }` |
 | `DELETE` | `/api/courses/admin/lessons/:id` | — |
+
+> **`type`** values: `"practice"` (default), `"lecture"`, `"mixed"`
+
+### Lectures
+
+#### `POST /api/courses/admin/lectures`
+Create a lecture with optional file uploads (multipart/form-data).
+
+**Form fields:**
+- `lessonId` (required), `contentType` (required: `text`|`audio`|`video`), `title` (required)
+- `order`, `textBody`, `mediaUrl`, `thumbnailUrl`, `durationSec` (optional)
+- `media` — single file upload for audio/video content
+- `thumbnail` — single file upload for preview image
+- `attachments` — up to 10 downloadable files (PDF, docs, etc.)
+
+**JSON-only example (no file upload):**
+```json
+{
+  "lessonId": "uuid",
+  "contentType": "text",
+  "title": "Introduction to Present Perfect",
+  "order": 0,
+  "textBody": "# Present Perfect\n\nThe present perfect tense is used to..."
+}
+```
+
+**Audio/video example (multipart):**
+```
+POST /api/courses/admin/lectures
+Content-Type: multipart/form-data
+
+lessonId=uuid
+contentType=video
+title=Pronunciation Guide
+durationSec=320
+media=@video.mp4
+thumbnail=@preview.jpg
+attachments=@worksheet.pdf
+attachments=@transcript.txt
+```
+
+#### `PUT /api/courses/admin/lectures/:id`
+Update a lecture. Same form fields as create (all optional). When `attachments` files are uploaded, existing attachments are **replaced**.
+
+#### `DELETE /api/courses/admin/lectures/:id`
+Deletes the lecture, its attachments, and all progress records (cascade).
+
+#### `POST /api/courses/admin/lectures/:id/attachments`
+Add files to an existing lecture without replacing existing ones.
+
+**Form field:** `files` — up to 10 files
+
+#### `DELETE /api/courses/admin/lecture-attachments/:id`
+Delete a single attachment.
 
 ### Exercises
 
@@ -434,7 +520,67 @@ Deletes the exercise and all child records (cascade).
 
 ---
 
-## 6. API Endpoints — Exercise Player
+## 6. API Endpoints — Lecture Viewer (Student)
+
+### `GET /api/courses/lectures/:lectureId`
+Get a single lecture with attachments and user progress.
+
+**Response:**
+```json
+{
+  "id": "lecture-uuid",
+  "lessonId": "lesson-uuid",
+  "contentType": "video",
+  "title": "Pronunciation Guide",
+  "order": 0,
+  "textBody": null,
+  "mediaUrl": "https://cdn.example.com/lectures/video.mp4",
+  "thumbnailUrl": "https://cdn.example.com/lectures/thumb.jpg",
+  "durationSec": 320,
+  "attachments": [
+    {
+      "id": "att-uuid",
+      "url": "https://cdn.example.com/files/worksheet.pdf",
+      "fileName": "worksheet.pdf",
+      "fileSize": 245000,
+      "mimeType": "application/pdf",
+      "order": 0
+    }
+  ],
+  "lesson": { "id": "...", "title": "..." },
+  "userProgress": {
+    "completed": false,
+    "progressPct": 45,
+    "completedAt": null
+  }
+}
+```
+
+### `POST /api/courses/lectures/:lectureId/progress`
+Update lecture view/read progress.
+
+**Body:**
+```json
+{ "progressPct": 75 }
+```
+
+When `progressPct` reaches 100, the lecture is automatically marked as `completed`.
+
+**Response:**
+```json
+{
+  "id": "progress-uuid",
+  "userId": "user-uuid",
+  "lectureId": "lecture-uuid",
+  "completed": false,
+  "progressPct": 75,
+  "completedAt": null
+}
+```
+
+---
+
+## 7. API Endpoints — Exercise Player
 
 ### `POST /api/courses/lessons/:lessonId/start`
 Start a new exercise session. Returns session state + all exercises for the lesson.
