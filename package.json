@@ -21,6 +21,7 @@
     "expo-server-sdk": "^3.13.0",
     "express": "^5.1.0",
     "express-rate-limit": "^8.3.2",
+    "grammy": "^1.42.0",
     "ioredis": "^5.10.1",
     "jsonwebtoken": "^9.0.3",
     "minio": "^8.0.7",

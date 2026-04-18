@@ -16,6 +16,7 @@ import {
 } from '../middleware/auth';
 import prisma from '../prisma';
 import { uploadImage } from '../services/minio';
+import { sendPasswordResetCode, verifyResetCode } from '../services/telegramBot';
 
 const router = Router();
 
@@ -299,6 +300,92 @@ router.put('/avatar', authenticateRequest, avatarUpload.single('avatar'), async 
     });
 
     res.json(serializeUser(user));
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// GET /api/auth/telegram-link — get Telegram deep link for account linking
+router.get('/telegram-link', authenticateRequest, async (req: Request, res: Response) => {
+  try {
+    const auth = (req as AuthenticatedRequest).auth!;
+    const botUsername = process.env.TELEGRAM_BOT_USERNAME;
+    if (!botUsername) {
+      res.status(503).json({ error: 'Telegram bot is not configured' });
+      return;
+    }
+
+    const user = await prisma.user.findUnique({ where: { id: auth.userId } });
+    const linked = Boolean(user?.telegramChatId);
+    const deepLink = `https://t.me/${botUsername}?start=${encodeURIComponent(auth.username)}`;
+
+    res.json({ deepLink, linked });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST /api/auth/password-reset/request — request a 6-digit reset code via Telegram
+router.post('/password-reset/request', async (req: Request, res: Response) => {
+  try {
+    const { login } = req.body;
+    if (!login) {
+      res.status(400).json({ error: 'Username or phone is required' });
+      return;
+    }
+
+    let user = await prisma.user.findUnique({ where: { username: login } });
+    if (!user) {
+      user = await prisma.user.findUnique({ where: { phone: login } });
+    }
+    if (!user || !user.telegramChatId) {
+      // Return generic message to avoid user enumeration
+      res.json({ message: 'If the account exists and Telegram is linked, a code has been sent.' });
+      return;
+    }
+
+    await sendPasswordResetCode(user.id);
+    res.json({ message: 'If the account exists and Telegram is linked, a code has been sent.' });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST /api/auth/password-reset/confirm — verify code and set new password
+router.post('/password-reset/confirm', async (req: Request, res: Response) => {
+  try {
+    const { login, code, newPassword } = req.body;
+    if (!login || !code || !newPassword) {
+      res.status(400).json({ error: 'login, code, and newPassword are required' });
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      res.status(400).json({ error: 'Password must be at least 6 characters' });
+      return;
+    }
+
+    let user = await prisma.user.findUnique({ where: { username: login } });
+    if (!user) {
+      user = await prisma.user.findUnique({ where: { phone: login } });
+    }
+    if (!user) {
+      res.status(400).json({ error: 'Invalid code or account' });
+      return;
+    }
+
+    const valid = await verifyResetCode(user.id, code);
+    if (!valid) {
+      res.status(400).json({ error: 'Invalid or expired code' });
+      return;
+    }
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { password: await hashPassword(newPassword) },
+    });
+
+    res.json({ message: 'Password reset successful' });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }

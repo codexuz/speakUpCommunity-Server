@@ -26,6 +26,7 @@ import { ensureBucket } from './services/minio';
 import { initChatSocket } from './services/chatSocket';
 import { initCronJobs } from './services/cron';
 import { seedAchievements } from './services/seedAchievements';
+import { createWebhookHandler, getTelegramBot } from './services/telegramBot';
 import './workers/audio.worker';
 
 // BigInt JSON serialization support
@@ -82,6 +83,12 @@ app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok' });
 });
 
+// Telegram bot webhook
+if (process.env.TELEGRAM_BOT_TOKEN) {
+  const webhookPath = `/api/telegram-webhook/${process.env.TELEGRAM_BOT_TOKEN}`;
+  app.use(webhookPath, createWebhookHandler());
+}
+
 const useHttps = Boolean(SSL_KEY_FILE && SSL_CERT_FILE);
 
 const server = useHttps
@@ -112,6 +119,18 @@ async function start() {
     console.warn('Achievement seeding failed:', (err as Error).message);
   }
   initCronJobs();
+
+  // Set Telegram bot webhook
+  if (process.env.TELEGRAM_BOT_TOKEN) {
+    try {
+      const protocol = useHttps ? 'https' : 'http';
+      const webhookUrl = `${protocol}://${PUBLIC_HOSTNAME}:${PORT}/api/telegram-webhook/${process.env.TELEGRAM_BOT_TOKEN}`;
+      await getTelegramBot().api.setWebhook(webhookUrl);
+      console.log('Telegram bot webhook set');
+    } catch (err) {
+      console.warn('Telegram webhook setup failed:', (err as Error).message);
+    }
+  }
 
   server.listen(Number(PORT), HOST, () => {
     const protocol = useHttps ? 'https' : 'http';
