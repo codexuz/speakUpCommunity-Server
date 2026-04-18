@@ -123,10 +123,9 @@ async function start() {
   // Set Telegram bot webhook
   if (process.env.TELEGRAM_BOT_TOKEN) {
     try {
-      const protocol = useHttps ? 'https' : 'http';
-      const webhookUrl = `${protocol}://${PUBLIC_HOSTNAME}:${PORT}/api/telegram-webhook/${process.env.TELEGRAM_BOT_TOKEN}`;
+      const webhookUrl = `https://speakup.impulselc.uz/api/telegram-webhook/${process.env.TELEGRAM_BOT_TOKEN}`;
       await getTelegramBot().api.setWebhook(webhookUrl);
-      console.log('Telegram bot webhook set');
+      console.log('Telegram bot webhook set to', webhookUrl);
     } catch (err) {
       console.warn('Telegram webhook setup failed:', (err as Error).message);
     }
