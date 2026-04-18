@@ -37,35 +37,37 @@ function registerHandlers(bot: Bot) {
     const login = ctx.match; // /start <username or phone>
     const chatId = ctx.chat.id.toString();
 
-    if (!login) {
-      await ctx.reply(
-        'Welcome to SpeakUp! To link your account, send:\n/start <username or phone>'
-      );
-      return;
-    }
-
-    let user = await prisma.user.findUnique({ where: { username: login } });
-    if (!user) {
-      user = await prisma.user.findUnique({ where: { phone: login } });
-    }
-    if (!user) {
-      await ctx.reply('Account not found. Please check your username or phone number.');
-      return;
-    }
-
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { telegramChatId: chatId },
-    });
-
     try {
+      if (!login) {
+        await ctx.reply(
+          'Welcome to SpeakUp! To link your account, send:\n/start <username or phone>'
+        );
+        return;
+      }
+
+      let user = await prisma.user.findUnique({ where: { username: login } });
+      if (!user) {
+        user = await prisma.user.findUnique({ where: { phone: login } });
+      }
+      if (!user) {
+        await ctx.reply('Account not found. Please check your username or phone number.');
+        return;
+      }
+
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { telegramChatId: chatId },
+      });
+
       await ctx.reply(
         `✅ Account linked successfully!\nHello, ${user.fullName}. You will receive password reset codes here.`
       );
     } catch (err) {
       if (isBotBlocked(err)) {
         await unlinkTelegramChat(chatId);
+        return;
       }
+      throw err;
     }
   });
 }
