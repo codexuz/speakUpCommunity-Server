@@ -1,0 +1,772 @@
+[
+  {
+    "q_text": "Do you work or are you a student?",
+    "part": 1,
+    "test": "Test 1"
+  },
+  {
+    "q_text": "Describe your hometown.",
+    "part": 1,
+    "test": "Test 1"
+  },
+  {
+    "q_text": "Where do you go in your free time?",
+    "part": 1,
+    "test": "Test 1"
+  },
+  {
+    "q_text": "Describe these images. ",
+    "part": 1,
+    "test": "Test 1"
+  },
+  {
+    "q_text": "What are some of the advantages of driving a car?",
+    "part": 1,
+    "test": "Test 1"
+  },
+  {
+    "q_text": "Why do some people prefer to use public transportation?",
+    "part": 1,
+    "test": "Test 1"
+  },
+  {
+    "q_text": "Describe a time when you faced a challenge. How did this challenge impact your life? Do you think challenges are important for humans?",
+    "part": 2,
+    "test": "Test 1"
+  },
+  {
+    "q_text": "\"Humans have no moral right to do experiments on animals.\" Discuss the arguments for and against.",
+    "part": 3,
+    "test": "Test 1"
+  },
+  {
+    "q_text": "What was your first teacher?",
+    "part": 1,
+    "test": "Test 2"
+  },
+  {
+    "q_text": "Do you live in a house or flat?",
+    "part": 1,
+    "test": "Test 2"
+  },
+  {
+    "q_text": "What do you do in evenings?",
+    "part": 1,
+    "test": "Test 2"
+  },
+  {
+    "q_text": "Describe these images. ",
+    "part": 1,
+    "test": "Test 2"
+  },
+  {
+    "q_text": "What are some of the advantages of eating in a restaurant?",
+    "part": 1,
+    "test": "Test 2"
+  },
+  {
+    "q_text": "Why do some people prefer to eat at home?",
+    "part": 1,
+    "test": "Test 2"
+  },
+  {
+    "q_text": "Describe a moment of failure. Why do you think failing is important? What is the role of failing in life?",
+    "part": 2,
+    "test": "Test 2"
+  },
+  {
+    "q_text": "Extracurricular activities play a vital role in shaping students into well-rounded individuals. Discuss the benefits and drawbacks.",
+    "part": 3,
+    "test": "Test 2"
+  },
+  {
+    "q_text": "Tell me about your school.",
+    "part": 1,
+    "test": "Test 3"
+  },
+  {
+    "q_text": "What type of music do you like?",
+    "part": 1,
+    "test": "Test 3"
+  },
+  {
+    "q_text": "What is your favorite part of the day?",
+    "part": 1,
+    "test": "Test 3"
+  },
+  {
+    "q_text": "Describe the pictures. ",
+    "part": 1,
+    "test": "Test 3"
+  },
+  {
+    "q_text": "What are the advantages of using air and road transportation?",
+    "part": 1,
+    "test": "Test 3"
+  },
+  {
+    "q_text": "Why do some people prefer air transportation over road?",
+    "part": 1,
+    "test": "Test 3"
+  },
+  {
+    "q_text": "Why do you think teamwork is important in achieving success? What challenges do people usually face when working in a team? Can you give an example of a time when you had to work in a team?",
+    "part": 2,
+    "test": "Test 3"
+  },
+  {
+    "q_text": "Students should wear uniform at school. Discuss the advantages and disadvantages.",
+    "part": 3,
+    "test": "Test 3"
+  },
+  {
+    "q_text": "What’s your town like?",
+    "part": 1,
+    "test": "Test 4"
+  },
+  {
+    "q_text": "Who is your favorite sports person?",
+    "part": 1,
+    "test": "Test 4"
+  },
+  {
+    "q_text": "How often do you use the internet?",
+    "part": 1,
+    "test": "Test 4"
+  },
+  {
+    "q_text": "Describe these images. ",
+    "part": 1,
+    "test": "Test 4"
+  },
+  {
+    "q_text": "What are the advantages of studying alone and with a group?",
+    "part": 1,
+    "test": "Test 4"
+  },
+  {
+    "q_text": "Why do some people prefer to study alone?",
+    "part": 1,
+    "test": "Test 4"
+  },
+  {
+    "q_text": "Describe a successful moment in your life. What did you learn from that successful moment? How did that moment impact your future goals or aspirations?",
+    "part": 2,
+    "test": "Test 4"
+  },
+  {
+    "q_text": "Everyone should have a hobby. Discuss the pros and cons.",
+    "part": 3,
+    "test": "Test 4"
+  },
+  {
+    "q_text": "What hobbies do you enjoy in your free time?",
+    "part": 1,
+    "test": "Test 7"
+  },
+  {
+    "q_text": "How often do you have breakfast at home?",
+    "part": 1,
+    "test": "Test 7"
+  },
+  {
+    "q_text": "Do you think breakfast is the most important meal of the day?",
+    "part": 1,
+    "test": "Test 7"
+  },
+  {
+    "q_text": "What can you see in these pictures? ",
+    "part": 1,
+    "test": "Test 7"
+  },
+  {
+    "q_text": "Is celebrating at home more important?",
+    "part": 1,
+    "test": "Test 7"
+  },
+  {
+    "q_text": "What are the disadvantages of celebrating in public places?",
+    "part": 1,
+    "test": "Test 7"
+  },
+  {
+    "q_text": "Describe a moment when you have experienced a difficult situation. How did this experience change your outlook on life? What strategies did you use to overcome the challenges you faced?",
+    "part": 2,
+    "test": "Test 7"
+  },
+  {
+    "q_text": "Learning a second language must be mandatory at schools. Discuss the benefits and drawbacks.",
+    "part": 3,
+    "test": "Test 7"
+  },
+  {
+    "q_text": "Tell me about your best friend.",
+    "part": 1,
+    "test": "Test 8"
+  },
+  {
+    "q_text": "Tell me about your country.",
+    "part": 1,
+    "test": "Test 8"
+  },
+  {
+    "q_text": "What do you do in your free time?",
+    "part": 1,
+    "test": "Test 8"
+  },
+  {
+    "q_text": "What can you see in these pictures? ",
+    "part": 1,
+    "test": "Test 8"
+  },
+  {
+    "q_text": "What are the advantages of walking over driving?",
+    "part": 1,
+    "test": "Test 8"
+  },
+  {
+    "q_text": "Why do many people prefer driving?",
+    "part": 1,
+    "test": "Test 8"
+  },
+  {
+    "q_text": "Tell me about a moment when you got advice from someone. How did this advice help you to shape your future? Why do you think it is important to get advice from others?",
+    "part": 2,
+    "test": "Test 8"
+  },
+  {
+    "q_text": "Zoos should be banned worldwide. Discuss the reasons supporting and opposing a ban.",
+    "part": 3,
+    "test": "Test 8"
+  },
+  {
+    "q_text": "What is your favorite food?",
+    "part": 1,
+    "test": "Test 9"
+  },
+  {
+    "q_text": "What do you do in the evenings?",
+    "part": 1,
+    "test": "Test 9"
+  },
+  {
+    "q_text": "Do you enjoy traveling?",
+    "part": 1,
+    "test": "Test 9"
+  },
+  {
+    "q_text": "What can you observe in these images? ",
+    "part": 1,
+    "test": "Test 9"
+  },
+  {
+    "q_text": "Which do you find more convenient to do before sleeping?",
+    "part": 1,
+    "test": "Test 9"
+  },
+  {
+    "q_text": "Why do people watch TV in their free time?",
+    "part": 1,
+    "test": "Test 9"
+  },
+  {
+    "q_text": "How does taking personal responsibility influence a person's success? What role does personal responsibility play in building strong relationships? How can practicing personal responsibility lead to personal growth?",
+    "part": 2,
+    "test": "Test 9"
+  },
+  {
+    "q_text": "All countries should adapt to a 4-day work week. Discuss the benefits and challenges.",
+    "part": 3,
+    "test": "Test 9"
+  },
+  {
+    "q_text": "What is your favorite color?",
+    "part": 1,
+    "test": "Test 10"
+  },
+  {
+    "q_text": "Do you prefer to study in the morning or at night?",
+    "part": 1,
+    "test": "Test 10"
+  },
+  {
+    "q_text": "What kind of films do you like to watch?",
+    "part": 1,
+    "test": "Test 10"
+  },
+  {
+    "q_text": "Describe these images. ",
+    "part": 1,
+    "test": "Test 10"
+  },
+  {
+    "q_text": "What are the advantages of typing over handwriting?",
+    "part": 1,
+    "test": "Test 10"
+  },
+  {
+    "q_text": "Why is handwriting still important today?",
+    "part": 1,
+    "test": "Test 10"
+  },
+  {
+    "q_text": "Describe a person you admire. Why do you admire this person? How has this person influenced your life?",
+    "part": 2,
+    "test": "Test 10"
+  },
+  {
+    "q_text": "Handwriting should no longer be taught in schools. Discuss the arguments for and against.",
+    "part": 3,
+    "test": "Test 10"
+  },
+  {
+    "q_text": "What kind of sports do you like playing in your free time?",
+    "part": 1,
+    "test": "Test 11"
+  },
+  {
+    "q_text": "Do you prefer playing sports outdoors or indoors? Why?",
+    "part": 1,
+    "test": "Test 11"
+  },
+  {
+    "q_text": "What are the advantages of team sports over individual sports?",
+    "part": 1,
+    "test": "Test 11"
+  },
+  {
+    "q_text": "Describe these images.",
+    "part": 1,
+    "test": "Test 11"
+  },
+  {
+    "q_text": "What are some of the advantages of using social media?",
+    "part": 1,
+    "test": "Test 11"
+  },
+  {
+    "q_text": "Why do you think social media has become so popular today?",
+    "part": 1,
+    "test": "Test 11"
+  },
+  {
+    "q_text": "Why is punctuality important in life? What are the negative effects of being late? Can you share an experience where your punctuality had a positive impact?",
+    "part": 2,
+    "test": "Test 11"
+  },
+  {
+    "q_text": "Should plastic packaging be banned worldwide? Give arguments for and against.",
+    "part": 3,
+    "test": "Test 11"
+  },
+  {
+    "q_text": "What is your favorite season? Why?",
+    "part": 1,
+    "test": "Test 12"
+  },
+  {
+    "q_text": "How do you celebrate your birthday?",
+    "part": 1,
+    "test": "Test 12"
+  },
+  {
+    "q_text": "Do you enjoy cooking? Why?",
+    "part": 1,
+    "test": "Test 12"
+  },
+  {
+    "q_text": "Describe these images.",
+    "part": 1,
+    "test": "Test 12"
+  },
+  {
+    "q_text": "What are the advantages of living in a big city?",
+    "part": 1,
+    "test": "Test 12"
+  },
+  {
+    "q_text": "Why do some people prefer living in the countryside?",
+    "part": 1,
+    "test": "Test 12"
+  },
+  {
+    "q_text": "Why is it important for children to have friends? How do friends help us in our lives? What qualities make a good friend?",
+    "part": 2,
+    "test": "Test 12"
+  },
+  {
+    "q_text": "Everyone should be allowed to own a gun. Discuss the arguments for and against.",
+    "part": 3,
+    "test": "Test 12"
+  },
+  {
+    "q_text": "What is your favorite flower? Why?",
+    "part": 1,
+    "test": "Test 13"
+  },
+  {
+    "q_text": "How often do you visit parks or gardens?",
+    "part": 1,
+    "test": "Test 13"
+  },
+  {
+    "q_text": "Do you think nature is important for mental health?",
+    "part": 1,
+    "test": "Test 13"
+  },
+  {
+    "q_text": "Describe these images.",
+    "part": 1,
+    "test": "Test 13"
+  },
+  {
+    "q_text": "What are the advantages of living in a small town?",
+    "part": 1,
+    "test": "Test 13"
+  },
+  {
+    "q_text": "Why do some people prefer living in big cities?",
+    "part": 1,
+    "test": "Test 13"
+  },
+  {
+    "q_text": "Why do you think people take risks? What are the benefits of taking risks? Can you describe a time when you took a risk?",
+    "part": 2,
+    "test": "Test 13"
+  },
+  {
+    "q_text": "All university degrees should be free. Discuss the arguments for and against.",
+    "part": 3,
+    "test": "Test 13"
+  },
+  {
+    "q_text": "What is your favorite subject?",
+    "part": 1,
+    "test": "Test 14"
+  },
+  {
+    "q_text": "Who is your favorite teacher?",
+    "part": 1,
+    "test": "Test 14"
+  },
+  {
+    "q_text": "What do you do in your free time?",
+    "part": 1,
+    "test": "Test 14"
+  },
+  {
+    "q_text": "Describe these images.",
+    "part": 1,
+    "test": "Test 14"
+  },
+  {
+    "q_text": "What are the advantages of online learning?",
+    "part": 1,
+    "test": "Test 14"
+  },
+  {
+    "q_text": "Why do some people prefer traditional classroom learning?",
+    "part": 1,
+    "test": "Test 14"
+  },
+  {
+    "q_text": "Why is it important to save money? How can saving money help us in the future? What are the best ways to save money?",
+    "part": 2,
+    "test": "Test 14"
+  },
+  {
+    "q_text": "People should be allowed to choose their retirement age. Discuss the advantages and disadvantages.",
+    "part": 3,
+    "test": "Test 14"
+  },
+  {
+    "q_text": "How do you help your parents at home?",
+    "part": 1,
+    "test": "Test 15"
+  },
+  {
+    "q_text": "What chores do you do regularly?",
+    "part": 1,
+    "test": "Test 15"
+  },
+  {
+    "q_text": "Do you think children should help with housework?",
+    "part": 1,
+    "test": "Test 15"
+  },
+  {
+    "q_text": "Describe these images.",
+    "part": 1,
+    "test": "Test 15"
+  },
+  {
+    "q_text": "What are the advantages of using public transportation?",
+    "part": 1,
+    "test": "Test 15"
+  },
+  {
+    "q_text": "Why do some people prefer driving their own cars?",
+    "part": 1,
+    "test": "Test 15"
+  },
+  {
+    "q_text": "Why is honesty important in relationships? What are the benefits of being honest? Can you share an experience where honesty made a difference?",
+    "part": 2,
+    "test": "Test 15"
+  },
+  {
+    "q_text": "All crimes should be punished by community service. Discuss the arguments for and against.",
+    "part": 3,
+    "test": "Test 15"
+  },
+  {
+    "q_text": "What is your favorite festival?",
+    "part": 1,
+    "test": "Test 16"
+  },
+  {
+    "q_text": "How do you celebrate festivals?",
+    "part": 1,
+    "test": "Test 16"
+  },
+  {
+    "q_text": "Do you like crowded places?",
+    "part": 1,
+    "test": "Test 16"
+  },
+  {
+    "q_text": "What are the advantages of celebrating festivals with family?",
+    "part": 1,
+    "test": "Test 16"
+  },
+  {
+    "q_text": "Why do some people prefer celebrating alone?",
+    "part": 1,
+    "test": "Test 16"
+  },
+  {
+    "q_text": "Describe these pictures.",
+    "part": 1,
+    "test": "Test 16"
+  },
+  {
+    "q_text": "What are the advantages of being rich?",
+    "part": 1,
+    "test": "Test 16"
+  },
+  {
+    "q_text": "Why do some people prefer to be poor?",
+    "part": 1,
+    "test": "Test 16"
+  },
+  {
+    "q_text": "Why is it important to have a balanced diet? What are the benefits of eating healthy food? How does a balanced diet affect our physical and mental health?",
+    "part": 2,
+    "test": "Test 16"
+  },
+  {
+    "q_text": "Should animal testing be banned worldwide? Discuss the arguments for and against.",
+    "part": 3,
+    "test": "Test 16"
+  },
+  {
+    "q_text": "What is your favorite color?",
+    "part": 1,
+    "test": "Test 17"
+  },
+  {
+    "q_text": "What color do you think best represents your personality?",
+    "part": 1,
+    "test": "Test 17"
+  },
+  {
+    "q_text": "Do you prefer bright or dark colors?",
+    "part": 1,
+    "test": "Test 17"
+  },
+  {
+    "q_text": "What are the advantages of bright colors?",
+    "part": 1,
+    "test": "Test 17"
+  },
+  {
+    "q_text": "Why do some people prefer dark colors?",
+    "part": 1,
+    "test": "Test 17"
+  },
+  {
+    "q_text": "Describe these images.",
+    "part": 1,
+    "test": "Test 17"
+  },
+  {
+    "q_text": "What are the advantages of living in a big city?",
+    "part": 1,
+    "test": "Test 17"
+  },
+  {
+    "q_text": "Why do some people prefer living in the countryside?",
+    "part": 1,
+    "test": "Test 17"
+  },
+  {
+    "q_text": "Why is it important to have a positive attitude? What are the benefits of being positive? How does positivity affect our relationships with others?",
+    "part": 2,
+    "test": "Test 17"
+  },
+  {
+    "q_text": "Should children be allowed to use smartphones? Discuss the arguments for and against.",
+    "part": 3,
+    "test": "Test 17"
+  },
+  {
+    "q_text": "What is your favorite fruit?",
+    "part": 1,
+    "test": "Test 18"
+  },
+  {
+    "q_text": "Do you prefer sweet or sour fruits?",
+    "part": 1,
+    "test": "Test 18"
+  },
+  {
+    "q_text": "What are the advantages of eating fruit?",
+    "part": 1,
+    "test": "Test 18"
+  },
+  {
+    "q_text": "Why do some people avoid eating fruit?",
+    "part": 1,
+    "test": "Test 18"
+  },
+  {
+    "q_text": "What are the differences between organic and non-organic food?",
+    "part": 1,
+    "test": "Test 18"
+  },
+  {
+    "q_text": "Describe these images.",
+    "part": 1,
+    "test": "Test 18"
+  },
+  {
+    "q_text": "What are some advantages of eating at home?",
+    "part": 1,
+    "test": "Test 18"
+  },
+  {
+    "q_text": "Why do some people prefer eating out?",
+    "part": 1,
+    "test": "Test 18"
+  },
+  {
+    "q_text": "Why is it important to have patience? How can patience help us in achieving our goals? Can you share an experience where patience made a difference?",
+    "part": 2,
+    "test": "Test 18"
+  },
+  {
+    "q_text": "Should people be allowed to have plastic surgery for cosmetic reasons? Discuss the arguments for and against.",
+    "part": 3,
+    "test": "Test 18"
+  },
+  {
+    "q_text": "Do you prefer to read books or watch movies?",
+    "part": 1,
+    "test": "Test 19"
+  },
+  {
+    "q_text": "What kind of books do you enjoy reading?",
+    "part": 1,
+    "test": "Test 19"
+  },
+  {
+    "q_text": "What are the advantages of reading books?",
+    "part": 1,
+    "test": "Test 19"
+  },
+  {
+    "q_text": "Why do some people prefer watching movies?",
+    "part": 1,
+    "test": "Test 19"
+  },
+  {
+    "q_text": "What are some of the best books you have read?",
+    "part": 1,
+    "test": "Test 19"
+  },
+  {
+    "q_text": "Describe these images.",
+    "part": 1,
+    "test": "Test 19"
+  },
+  {
+    "q_text": "What are the advantages of online shopping?",
+    "part": 1,
+    "test": "Test 19"
+  },
+  {
+    "q_text": "Why do some people prefer traditional shopping?",
+    "part": 1,
+    "test": "Test 19"
+  },
+  {
+    "q_text": "Why is it important to be confident? How does confidence affect our success? What are some ways to build confidence?",
+    "part": 2,
+    "test": "Test 19"
+  },
+  {
+    "q_text": "Should everyone be allowed to own a gun? Discuss the arguments for and against.",
+    "part": 3,
+    "test": "Test 19"
+  },
+  {
+    "q_text": "What is your favorite type of weather?",
+    "part": 1,
+    "test": "Test 20"
+  },
+  {
+    "q_text": "Do you prefer hot or cold weather?",
+    "part": 1,
+    "test": "Test 20"
+  },
+  {
+    "q_text": "What are the advantages of hot weather?",
+    "part": 1,
+    "test": "Test 20"
+  },
+  {
+    "q_text": "Why do some people prefer cold weather?",
+    "part": 1,
+    "test": "Test 20"
+  },
+  {
+    "q_text": "Describe these images.",
+    "part": 1,
+    "test": "Test 20"
+  },
+  {
+    "q_text": "What are the advantages of traveling by plane?",
+    "part": 1,
+    "test": "Test 20"
+  },
+  {
+    "q_text": "Why do some people prefer traveling by train?",
+    "part": 1,
+    "test": "Test 20"
+  },
+  {
+    "q_text": "What are some interesting places you would like to visit?",
+    "part": 1,
+    "test": "Test 20"
+  },
+  {
+    "q_text": "Why is it important to learn from mistakes? How do mistakes help us grow? Can you share an experience where a mistake taught you a valuable lesson?",
+    "part": 2,
+    "test": "Test 20"
+  },
+  {
+    "q_text": "Should plastic packaging be banned worldwide? Discuss the arguments for and against.",
+    "part": 3,
+    "test": "Test 20"
+  }
+]
