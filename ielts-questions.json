@@ -1,40 +1,5 @@
 [
   {
-    "q_text": "Do you work or are you a student?",
-    "part": 1,
-    "topic": "WORK AND STUDIES"
-  },
-  {
-    "q_text": "What work do you do? / What subjects are you studying?",
-    "part": 1,
-    "topic": "WORK AND STUDIES"
-  },
-  {
-    "q_text": "Why did you choose that job/subject?",
-    "part": 1,
-    "topic": "WORK AND STUDIES"
-  },
-  {
-    "q_text": "Do you like your job/studies?",
-    "part": 1,
-    "topic": "WORK AND STUDIES"
-  },
-  {
-    "q_text": "Is there anything you dislike about your job/studies?",
-    "part": 1,
-    "topic": "WORK AND STUDIES"
-  },
-  {
-    "q_text": "What was your dream job when you were young?",
-    "part": 1,
-    "topic": "WORK AND STUDIES"
-  },
-  {
-    "q_text": "Have you changed your mind on your dream job?",
-    "part": 1,
-    "topic": "WORK AND STUDIES"
-  },
-  {
     "q_text": "Please describe your hometown a little.",
     "part": 1,
     "topic": "HOMETOWN, AREA YOU LIVE IN"

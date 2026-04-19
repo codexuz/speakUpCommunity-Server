@@ -45,7 +45,7 @@ async function main() {
 
   for (let i = 0; i < numTests; i++) {
     const testTitle = `Test ${i + 2}`;
-    
+
     // Create Test
     const test = await prisma.test.create({
       data: {
@@ -63,7 +63,7 @@ async function main() {
         data: {
           testId: test.id,
           qText: q.q_text,
-          part: '1',
+          part: 'Part 1',
           speakingTimer: 60,
           prepTimer: 5,
         },
@@ -77,7 +77,7 @@ async function main() {
         data: {
           testId: test.id,
           qText: p2Q.q_text,
-          part: '2',
+          part: 'Part 2',
           speakingTimer: 120,
           prepTimer: 60,
         },
@@ -93,7 +93,7 @@ async function main() {
           data: {
             testId: test.id,
             qText: q.q_text,
-            part: '3',
+            part: 'Part 3',
             speakingTimer: 60,
             prepTimer: 5,
           },
