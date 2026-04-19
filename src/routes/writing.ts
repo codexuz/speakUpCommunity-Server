@@ -592,6 +592,76 @@ router.get('/ai-feedback/session/:sessionId', async (req: Request, res: Response
 
 // ─── TEACHER REVIEWS ────────────────────────────────────────────
 
+// GET /api/writing/pending-reviews — all sessions awaiting teacher review (verified teachers only)
+router.get('/pending-reviews', requireRole('teacher', 'admin'), async (req: Request, res: Response) => {
+  try {
+    const auth = (req as AuthenticatedRequest).auth!;
+
+    // Verify the teacher is actually verified
+    if (auth.role === 'teacher') {
+      const user = await prisma.user.findUnique({
+        where: { id: auth.userId },
+        select: { verifiedTeacher: true },
+      });
+      if (!user?.verifiedTeacher) {
+        res.status(403).json({ error: 'Only verified teachers can view pending reviews' });
+        return;
+      }
+    }
+
+    const page = Math.max(1, parseInt(req.query.page as string) || 1);
+    const limit = Math.min(50, Math.max(1, parseInt(req.query.limit as string) || 20));
+    const offset = (page - 1) * limit;
+
+    const examType = req.query.examType as string | undefined;
+
+    const where: any = {
+      reviews: { none: {} },
+      responses: { some: {} },
+      visibility: { in: ['community', 'group'] },
+    };
+
+    if (examType && ['ielts', 'cefr'].includes(examType)) {
+      where.examType = examType;
+    }
+
+    // For group-visible sessions, ensure the teacher is a member
+    const teacherGroups = await prisma.groupMember.findMany({
+      where: { userId: auth.userId },
+      select: { groupId: true },
+    });
+    const teacherGroupIds = teacherGroups.map((g) => g.groupId);
+
+    where.OR = [
+      { visibility: 'community' },
+      { visibility: 'group', groupId: { in: teacherGroupIds } },
+    ];
+    delete where.visibility;
+
+    const [sessions, total] = await Promise.all([
+      prisma.writingSession.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip: offset,
+        take: limit,
+        include: {
+          test: { select: { id: true, title: true, examType: true } },
+          user: { select: { id: true, fullName: true, username: true, avatarUrl: true } },
+          _count: { select: { responses: true } },
+        },
+      }),
+      prisma.writingSession.count({ where }),
+    ]);
+
+    res.json({
+      data: sessions.map((s: any) => ({ ...s, id: s.id.toString() })),
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // POST /api/writing/sessions/:sessionId/review
 router.post('/sessions/:sessionId/review', async (req: Request, res: Response) => {
   try {
