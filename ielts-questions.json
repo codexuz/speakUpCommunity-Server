@@ -340,11 +340,6 @@
     "topic": "CHILDHOOD ACTIVITIES"
   },
   {
-    "q_text": "Describe a film you watched recently that you felt disappointed about. You should say: what it was, why you decided to watch it, why it made you disappointed",
-    "part": 2,
-    "topic": "A film you felt disappointed about"
-  },
-  {
     "q_text": "Describe a family member that did something that made you feel proud. You should say: who this person is, what this person did, why you felt proud of them",
     "part": 2,
     "topic": "A family member who made you proud"
@@ -478,46 +473,6 @@
     "q_text": "Describe a quiet place that you like to go to. You should say: what place it is, how often you go there and when, what you do there, why you like this place",
     "part": 2,
     "topic": "A quiet place you like"
-  },
-  {
-    "q_text": "Are actors and actresses important to movies?",
-    "part": 3,
-    "topic": "MOVIES"
-  },
-  {
-    "q_text": "Do you think films with famous actors or actresses are more likely to become successful films?",
-    "part": 3,
-    "topic": "MOVIES"
-  },
-  {
-    "q_text": "Are historical films popular in your country?",
-    "part": 3,
-    "topic": "MOVIES"
-  },
-  {
-    "q_text": "Why are Japanese animated films so popular?",
-    "part": 3,
-    "topic": "MOVIES"
-  },
-  {
-    "q_text": "Do you believe movie reviews?",
-    "part": 3,
-    "topic": "MOVIES"
-  },
-  {
-    "q_text": "What kinds of movies are popular in your country?",
-    "part": 3,
-    "topic": "MOVIES"
-  },
-  {
-    "q_text": "Should actors be paid more?",
-    "part": 3,
-    "topic": "MOVIES"
-  },
-  {
-    "q_text": "Should famous actors and actresses be paid a lot of money?",
-    "part": 3,
-    "topic": "MOVIES"
   },
   {
     "q_text": "On what occasions would adults feel proud of themselves?",
