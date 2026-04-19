@@ -40,7 +40,7 @@ function registerHandlers(bot: Bot) {
     try {
       if (!login) {
         await ctx.reply(
-          'Welcome to SpeakUp! To link your account, send:\n/start <username or phone>'
+          'SpeakUp ga xush kelibsiz! Hisobingizni ulash uchun quyidagini yuboring:\n/start <username yoki telefon raqami>'
         );
         return;
       }
@@ -50,11 +50,11 @@ function registerHandlers(bot: Bot) {
         user = await prisma.user.findUnique({ where: { phone: login } });
       }
       if (!user) {
-        await ctx.reply('Account not found. Please check your username or phone number.');
+        await ctx.reply('Hisob topilmadi. Foydalanuvchi nomingiz yoki telefon raqamingizni tekshiring.');
         return;
       }
 
-      // Unlink any previous user bound to this Telegram chat
+      // Avvalgi Telegram chat bilan bog'langan foydalanuvchini ajratish
       await unlinkTelegramChat(chatId);
 
       await prisma.user.update({
@@ -63,7 +63,8 @@ function registerHandlers(bot: Bot) {
       });
 
       await ctx.reply(
-        `✅ Account linked successfully!\nHello, ${user.fullName}. You will receive password reset codes here.`
+        `✅ Hisob muvaffaqiyatli ulandi!\nSalom, ${user.fullName}. Parolni tiklash kodlarini shu yerda olasiz. Ilovaga qaytib *Check Connection* tugmasini bosing!`,
+        { parse_mode: 'Markdown' }
       );
     } catch (err) {
       if (isBotBlocked(err)) {
@@ -89,13 +90,13 @@ export async function sendPasswordResetCode(userId: string): Promise<void> {
   try {
     await telegramBot.api.sendMessage(
       user.telegramChatId,
-      `🔐 Your password reset code: *${code}*\n\nThis code expires in 5 minutes. If you didn't request this, ignore this message.`,
+      `🔐 Parolni tiklash kodingiz: *${code}*\n\nUshbu kod 5 daqiqadan keyin amal qilmaydi. Agar siz so'ramagan bo'lsangiz, bu xabarni e'tiborsiz qoldiring.`,
       { parse_mode: 'Markdown' }
     );
   } catch (err) {
     if (isBotBlocked(err)) {
       await unlinkTelegramChat(user.telegramChatId);
-      throw new Error('Telegram bot was blocked by the user');
+      throw new Error('Telegram bot foydalanuvchi tomonidan bloklangan');
     }
     throw err;
   }
