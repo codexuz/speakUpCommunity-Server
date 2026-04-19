@@ -177,3 +177,84 @@ npx prisma db push
 ```
 
 This adds the `is_global` column (default `false`) to the `groups` table and creates the `ads` table.
+
+---
+
+## Tests — `isPublished` Flag
+
+Tests now support an `isPublished` field. Unpublished tests are only visible to teachers and admins.
+
+### What changed
+
+- **`isPublished` field** added to all test responses (`boolean`, default `false`)
+- **Students** only see published tests (`isPublished: true`) in `GET /api/tests`
+- **Teachers/admins** see all tests by default, with optional `?isPublished=true|false` filter
+- `POST /api/tests` and `PUT /api/tests/:id` accept optional `isPublished` in the request body
+
+### Listing tests
+
+`GET /api/tests?testType=cefr&isPublished=true&page=1&limit=10`
+
+| Param | Type | Description |
+|-------|------|-------------|
+| `testType` | `cefr` \| `ielts` | Filter by exam type |
+| `isPublished` | `true` \| `false` | Filter by publish status (teachers/admins only) |
+| `page` | number | Page number (default 1) |
+| `limit` | number | Items per page (default 10, max 100) |
+
+> Students: `isPublished` filter is ignored — they always see only published tests.
+
+### Creating a test
+
+`POST /api/tests`
+
+```json
+{
+  "title": "IELTS Practice 5",
+  "description": "Part 2 topics",
+  "testType": "ielts",
+  "isPublished": true
+}
+```
+
+If `isPublished` is omitted, defaults to `false` (draft).
+
+### Updating a test
+
+`PUT /api/tests/:id`
+
+```json
+{
+  "isPublished": true
+}
+```
+
+Any subset of fields can be sent. Use this to publish/unpublish a test.
+
+### Test response shape
+
+```json
+{
+  "id": 1,
+  "title": "IELTS Practice 5",
+  "description": "Part 2 topics",
+  "testType": "ielts",
+  "isPublished": true,
+  "createdAt": "...",
+  "questions": [...]
+}
+```
+
+### Client-side notes
+
+- Show a "Draft" badge for unpublished tests in teacher/admin views
+- Hide unpublished tests from student UI (the API already filters them)
+- Add a publish/unpublish toggle in the test edit screen for teachers/admins
+
+### Migration
+
+```bash
+npx prisma migrate dev
+```
+
+This adds the `is_published` column (default `false`) to the `tests` table with an index.
