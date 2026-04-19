@@ -22,12 +22,14 @@ import speechRoutes from './routes/speech';
 import teacherVerificationRoutes from './routes/teacherVerification';
 import testsRoutes from './routes/tests';
 import usersRoutes from './routes/users';
+import writingRoutes from './routes/writing';
 import { ensureBucket } from './services/minio';
 import { initChatSocket } from './services/chatSocket';
 import { initCronJobs } from './services/cron';
 import { seedAchievements } from './services/seedAchievements';
 import { createWebhookHandler, getTelegramBot } from './services/telegramBot';
 import './workers/audio.worker';
+import './workers/writing.worker';
 
 // BigInt JSON serialization support
 (BigInt.prototype as any).toJSON = function () {
@@ -85,6 +87,7 @@ app.use('/api/progress', progressRoutes);
 app.use('/api/challenges', challengesRoutes);
 app.use('/api/courses', coursesRoutes);
 app.use('/api/ai-feedback', aiFeedbackRoutes);
+app.use('/api/writing', writingRoutes);
 app.use('/api/speech', speechRoutes);
 
 app.get('/api/health', (_req, res) => {

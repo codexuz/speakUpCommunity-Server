@@ -305,4 +305,133 @@ router.delete('/questions/:id', async (req: Request, res: Response) => {
   }
 });
 
+// ─── SAMPLE ANSWERS CRUD ────────────────────────────────────
+
+// GET /api/tests/questions/:questionId/sample-answers — list sample answers for a question
+router.get('/questions/:questionId/sample-answers', async (req: Request, res: Response) => {
+  try {
+    const questionId = parseInt(req.params.questionId as string);
+    const { level } = req.query;
+
+    const where: any = { questionId };
+    if (level) where.level = level as string;
+
+    const sampleAnswers = await prisma.sampleAnswer.findMany({
+      where,
+      orderBy: [{ level: 'asc' }, { version: 'asc' }],
+    });
+    res.json(sampleAnswers);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// GET /api/tests/sample-answers/:id — single sample answer
+router.get('/sample-answers/:id', async (req: Request, res: Response) => {
+  try {
+    const sampleAnswer = await prisma.sampleAnswer.findUnique({
+      where: { id: parseInt(req.params.id as string) },
+    });
+    if (!sampleAnswer) {
+      res.status(404).json({ error: 'Sample answer not found' });
+      return;
+    }
+    res.json(sampleAnswer);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST /api/tests/questions/:questionId/sample-answers — create a sample answer
+router.post('/questions/:questionId/sample-answers', async (req: Request, res: Response) => {
+  try {
+    const auth = (req as AuthenticatedRequest).auth!;
+    if (auth.role !== 'teacher' && auth.role !== 'admin') {
+      res.status(403).json({ error: 'Only teachers/admins can create sample answers' });
+      return;
+    }
+    const questionId = parseInt(req.params.questionId as string);
+    const { level, version, answerText, audioUrl } = req.body;
+    if (!level || !answerText) {
+      res.status(400).json({ error: 'level and answerText are required' });
+      return;
+    }
+
+    const sampleAnswer = await prisma.sampleAnswer.create({
+      data: {
+        questionId,
+        level,
+        answerText,
+        ...(version !== undefined && { version: parseInt(version) }),
+        ...(audioUrl !== undefined && { audioUrl }),
+      },
+    });
+    res.status(201).json(sampleAnswer);
+  } catch (error: any) {
+    if (error.code === 'P2003') {
+      res.status(404).json({ error: 'Question not found' });
+      return;
+    }
+    if (error.code === 'P2002') {
+      res.status(409).json({ error: 'Sample answer for this question/level/version already exists' });
+      return;
+    }
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// PUT /api/tests/sample-answers/:id — update a sample answer
+router.put('/sample-answers/:id', async (req: Request, res: Response) => {
+  try {
+    const auth = (req as AuthenticatedRequest).auth!;
+    if (auth.role !== 'teacher' && auth.role !== 'admin') {
+      res.status(403).json({ error: 'Only teachers/admins can update sample answers' });
+      return;
+    }
+    const id = parseInt(req.params.id as string);
+    const { level, version, answerText, audioUrl } = req.body;
+
+    const sampleAnswer = await prisma.sampleAnswer.update({
+      where: { id },
+      data: {
+        ...(level !== undefined && { level }),
+        ...(version !== undefined && { version: parseInt(version) }),
+        ...(answerText !== undefined && { answerText }),
+        ...(audioUrl !== undefined && { audioUrl: audioUrl || null }),
+      },
+    });
+    res.json(sampleAnswer);
+  } catch (error: any) {
+    if (error.code === 'P2025') {
+      res.status(404).json({ error: 'Sample answer not found' });
+      return;
+    }
+    if (error.code === 'P2002') {
+      res.status(409).json({ error: 'Sample answer for this question/level/version already exists' });
+      return;
+    }
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// DELETE /api/tests/sample-answers/:id — delete a sample answer
+router.delete('/sample-answers/:id', async (req: Request, res: Response) => {
+  try {
+    const auth = (req as AuthenticatedRequest).auth!;
+    if (auth.role !== 'teacher' && auth.role !== 'admin') {
+      res.status(403).json({ error: 'Only teachers/admins can delete sample answers' });
+      return;
+    }
+    const id = parseInt(req.params.id as string);
+    await prisma.sampleAnswer.delete({ where: { id } });
+    res.json({ message: 'Sample answer deleted' });
+  } catch (error: any) {
+    if (error.code === 'P2025') {
+      res.status(404).json({ error: 'Sample answer not found' });
+      return;
+    }
+    res.status(500).json({ error: error.message });
+  }
+});
+
 export default router;

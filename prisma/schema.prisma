@@ -135,6 +135,9 @@ model User {
     lessonProgress        UserLessonProgress[]
     exerciseSessions      ExerciseSession[]
     lectureProgress       UserLectureProgress[]
+    writingSessions       WritingSession[]
+    writingResponses      WritingResponse[]
+    writingReviews        WritingReview[]
 
     @@map("users")
 }
@@ -209,10 +212,28 @@ model Question {
     prepTimer     Int      @default(5) @map("prep_timer")
     createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
 
-    test      Test       @relation(fields: [testId], references: [id], onDelete: Cascade)
-    responses Response[]
+    test          Test           @relation(fields: [testId], references: [id], onDelete: Cascade)
+    responses     Response[]
+    sampleAnswers SampleAnswer[]
 
     @@map("questions")
+}
+
+model SampleAnswer {
+    id         Int      @id @default(autoincrement())
+    questionId Int      @map("question_id")
+    level      String // e.g. A2, B1, B2, C1
+    version    Int      @default(1)
+    answerText String   @map("answer_text")
+    audioUrl   String?  @map("audio_url")
+    createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+    question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+    @@unique([questionId, level, version])
+    @@index([questionId])
+    @@index([level])
+    @@map("sample_answers")
 }
 
 model Response {
@@ -293,12 +314,13 @@ model Group {
     maxLevel       String?  @map("max_level")
     createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
 
-    creator      User                     @relation("CreatorGroups", fields: [createdById], references: [id], onDelete: Cascade)
-    members      GroupMember[]
-    sessions     TestSession[]
-    joinRequests GroupJoinRequest[]
-    messages     GroupMessage[]
-    readCursors  GroupMessageReadCursor[]
+    creator         User                     @relation("CreatorGroups", fields: [createdById], references: [id], onDelete: Cascade)
+    members         GroupMember[]
+    sessions        TestSession[]
+    joinRequests    GroupJoinRequest[]
+    messages        GroupMessage[]
+    readCursors     GroupMessageReadCursor[]
+    writingSessions WritingSession[]
 
     @@map("groups")
 }
@@ -462,6 +484,7 @@ model UserProgress {
     lastActiveDate    DateTime? @map("last_active_date") @db.Date
     streakFreezes     Int       @default(0) @map("streak_freezes")
     totalRecordings   Int       @default(0) @map("total_recordings")
+    totalWritings     Int       @default(0) @map("total_writings")
     totalReviewsGiven Int       @default(0) @map("total_reviews_given")
     fluencyWPMAvg     Float?    @map("fluency_wpm_avg")
     vocabDiversityAvg Float?    @map("vocab_diversity_avg")
@@ -815,4 +838,126 @@ model UserReputation {
     @@index([helpfulVotes])
     @@index([mentorLevel])
     @@map("user_reputations")
+}
+
+// ─── Phase 7: Writing Tests ────────────────────────────────────
+
+model WritingTest {
+    id          Int      @id @default(autoincrement())
+    title       String
+    description String?
+    examType    ExamType @default(cefr) @map("exam_type")
+    isPublished Boolean  @default(false) @map("is_published")
+    createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+    tasks    WritingTask[]
+    sessions WritingSession[]
+
+    @@index([isPublished])
+    @@map("writing_tests")
+}
+
+model WritingTask {
+    id        Int      @id @default(autoincrement())
+    testId    Int      @map("test_id")
+    taskText  String   @map("task_text")
+    part      String // e.g. "Task 1", "Task 2"
+    image     String? // optional reference image
+    minWords  Int      @default(150) @map("min_words")
+    maxWords  Int      @default(250) @map("max_words")
+    timeLimit Int      @default(1200) @map("time_limit") // seconds (default 20 min)
+    createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+    test      WritingTest       @relation(fields: [testId], references: [id], onDelete: Cascade)
+    responses WritingResponse[]
+
+    @@map("writing_tasks")
+}
+
+model WritingSession {
+    id         BigInt     @id @default(autoincrement())
+    testId     Int        @map("test_id")
+    userId     String     @map("user_id") @db.Uuid
+    examType   ExamType   @default(cefr) @map("exam_type")
+    visibility Visibility @default(private)
+    groupId    String?    @map("group_id") @db.Uuid
+    scoreAvg   Float?     @map("score_avg")
+    cefrLevel  String?    @map("cefr_level") // Derived: A2, B1, B2, C1, C2
+    createdAt  DateTime   @default(now()) @map("created_at") @db.Timestamptz
+
+    test      WritingTest       @relation(fields: [testId], references: [id], onDelete: Cascade)
+    user      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+    group     Group?            @relation(fields: [groupId], references: [id], onDelete: SetNull)
+    responses WritingResponse[]
+    reviews   WritingReview[]
+
+    @@index([userId])
+    @@index([testId])
+    @@index([groupId])
+    @@index([createdAt])
+    @@map("writing_sessions")
+}
+
+model WritingResponse {
+    id           BigInt   @id @default(autoincrement())
+    taskId       Int      @map("task_id")
+    studentId    String   @map("student_id") @db.Uuid
+    sessionId    BigInt?  @map("session_id")
+    essayText    String   @map("essay_text")
+    wordCount    Int      @map("word_count")
+    timeTakenSec Int?     @map("time_taken_sec")
+    createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+    task       WritingTask        @relation(fields: [taskId], references: [id], onDelete: Cascade)
+    student    User               @relation(fields: [studentId], references: [id], onDelete: Cascade)
+    session    WritingSession?    @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+    aiFeedback WritingAIFeedback?
+
+    @@index([studentId])
+    @@index([sessionId])
+    @@index([createdAt])
+    @@map("writing_responses")
+}
+
+model WritingAIFeedback {
+    id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+    responseId BigInt   @unique @map("response_id")
+    examType   ExamType @map("exam_type")
+
+    // IELTS bands (0-9) or CEFR scores (1-6)
+    taskAchievement   Float  @map("task_achievement") // Task Response / Task Achievement
+    coherenceCohesion Float  @map("coherence_cohesion") // Coherence & Cohesion
+    lexicalResource   Float  @map("lexical_resource") // Lexical Resource
+    grammaticalRange  Float  @map("grammatical_range") // Grammatical Range & Accuracy
+    overallScore      Float  @map("overall_score")
+    cefrLevel         String @map("cefr_level") // Derived CEFR level
+
+    grammarIssues    Json     @default("[]") @map("grammar_issues") @db.JsonB
+    vocabSuggestions Json     @default("[]") @map("vocab_suggestions") @db.JsonB
+    coherenceNotes   Json     @default("[]") @map("coherence_notes") @db.JsonB
+    taskNotes        String?  @map("task_notes") // How well the task was addressed
+    aiSummary        String?  @map("ai_summary")
+    improvedEssay    String?  @map("improved_essay") // AI-rewritten improved version
+    createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+    response WritingResponse @relation(fields: [responseId], references: [id], onDelete: Cascade)
+
+    @@index([responseId])
+    @@map("writing_ai_feedbacks")
+}
+
+model WritingReview {
+    id         BigInt   @id @default(autoincrement())
+    sessionId  BigInt   @map("session_id")
+    reviewerId String   @map("reviewer_id") @db.Uuid
+    score      Float // IELTS: 0-9, CEFR: 1-6
+    feedback   String?
+    createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+    session  WritingSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+    reviewer User           @relation(fields: [reviewerId], references: [id], onDelete: Cascade)
+
+    @@unique([sessionId, reviewerId])
+    @@index([reviewerId])
+    @@map("writing_reviews")
 }

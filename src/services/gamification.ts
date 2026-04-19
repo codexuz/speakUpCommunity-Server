@@ -4,6 +4,7 @@ import prisma from '../prisma';
 
 export const XP_REWARDS = {
   SUBMIT_RECORDING: 20,
+  SUBMIT_WRITING: 20,
   COMPLETE_DAILY_CHALLENGE: 50,
   COMPLETE_WEEKLY_CHALLENGE: 200,
   AI_SCORE_ABOVE_60: 30,
@@ -234,6 +235,24 @@ export async function checkAllAchievements(userId: string) {
   }
   if (progress.totalRecordings >= 100) {
     const r = await checkAndUnlockAchievement(userId, '100_recordings');
+    if (r) unlocked.push(r.achievement.key);
+  }
+
+  // Writing milestones
+  if (progress.totalWritings >= 1) {
+    const r = await checkAndUnlockAchievement(userId, 'first_writing');
+    if (r) unlocked.push(r.achievement.key);
+  }
+  if (progress.totalWritings >= 10) {
+    const r = await checkAndUnlockAchievement(userId, '10_writings');
+    if (r) unlocked.push(r.achievement.key);
+  }
+  if (progress.totalWritings >= 50) {
+    const r = await checkAndUnlockAchievement(userId, '50_writings');
+    if (r) unlocked.push(r.achievement.key);
+  }
+  if (progress.totalWritings >= 100) {
+    const r = await checkAndUnlockAchievement(userId, '100_writings');
     if (r) unlocked.push(r.achievement.key);
   }
 
