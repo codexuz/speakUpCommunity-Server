@@ -159,11 +159,13 @@ model Test {
     title       String
     description String?
     testType    ExamType @default(cefr) @map("test_type")
+    isPublished Boolean  @default(false) @map("is_published")
     createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
 
     questions Question[]
     sessions  TestSession[]
 
+    @@index([isPublished])
     @@map("tests")
 }
 

@@ -32,9 +32,18 @@ router.get('/', async (req: Request, res: Response) => {
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 10));
     const skip = (page - 1) * limit;
 
-    const where = testType && Object.values(ExamType).includes(testType as ExamType)
-      ? { testType: testType as ExamType }
-      : undefined;
+    const auth = (req as AuthenticatedRequest).auth;
+    const isAdminOrTeacher = auth?.role === 'admin' || auth?.role === 'teacher';
+
+    const where: any = {};
+    if (testType && Object.values(ExamType).includes(testType as ExamType)) {
+      where.testType = testType as ExamType;
+    }
+    if (!isAdminOrTeacher) {
+      where.isPublished = true;
+    } else if (req.query.isPublished !== undefined) {
+      where.isPublished = req.query.isPublished === 'true';
+    }
 
     const [tests, total] = await Promise.all([
       prisma.test.findMany({
@@ -90,7 +99,7 @@ router.post('/', async (req: Request, res: Response) => {
       res.status(403).json({ error: 'Only teachers/admins can create tests' });
       return;
     }
-    const { title, description, testType } = req.body;
+    const { title, description, testType, isPublished } = req.body;
     if (!title) {
       res.status(400).json({ error: 'title is required' });
       return;
@@ -100,6 +109,7 @@ router.post('/', async (req: Request, res: Response) => {
         title,
         description,
         testType: testType === 'ielts' ? 'ielts' : 'cefr',
+        ...(isPublished !== undefined && { isPublished: Boolean(isPublished) }),
       },
       include: { questions: true },
     });
@@ -118,13 +128,14 @@ router.put('/:id', async (req: Request, res: Response) => {
       return;
     }
     const id = parseInt(req.params.id as string);
-    const { title, description, testType } = req.body;
+    const { title, description, testType, isPublished } = req.body;
     const test = await prisma.test.update({
       where: { id },
       data: {
         ...(title !== undefined && { title }),
         ...(description !== undefined && { description }),
         ...(testType !== undefined && { testType: testType === 'ielts' ? 'ielts' as const : 'cefr' as const }),
+        ...(isPublished !== undefined && { isPublished: Boolean(isPublished) }),
       },
       include: { questions: { orderBy: { id: 'asc' } } },
     });

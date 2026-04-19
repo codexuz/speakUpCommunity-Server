@@ -52,6 +52,7 @@ async function main() {
         title: testTitle,
         description: `IELTS Speaking Practice Test - ${testTitle}`,
         testType: 'ielts',
+        isPublished: true,
       },
     });
 

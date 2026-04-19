@@ -36,6 +36,7 @@ async function main() {
         title: title,
         description: `CEFR Speaking Practice Test - ${title}`,
         testType: 'cefr',
+        isPublished: true,
       },
     });
 
