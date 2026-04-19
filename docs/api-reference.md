@@ -53,6 +53,7 @@ const headers = (token: string) => ({
 - [Analytics (Teacher)](#analytics-teacher)
 - [Teacher Verification](#teacher-verification)
 - [Health Check](#health-check)
+- [Writing Tests & AI Assessment](#writing-tests--ai-assessment)
 - [Error Handling](#error-handling)
 
 ---
@@ -1296,6 +1297,8 @@ const healthCheck = async () => {
   return res.json(); // { status: "ok" }
 };
 ```
+
+---
 
 ---
 
