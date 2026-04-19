@@ -1,0 +1,1127 @@
+[
+  {
+    "q_text": "Do you work or are you a student?",
+    "part": 1,
+    "topic": "WORK AND STUDIES"
+  },
+  {
+    "q_text": "What work do you do? / What subjects are you studying?",
+    "part": 1,
+    "topic": "WORK AND STUDIES"
+  },
+  {
+    "q_text": "Why did you choose that job/subject?",
+    "part": 1,
+    "topic": "WORK AND STUDIES"
+  },
+  {
+    "q_text": "Do you like your job/studies?",
+    "part": 1,
+    "topic": "WORK AND STUDIES"
+  },
+  {
+    "q_text": "Is there anything you dislike about your job/studies?",
+    "part": 1,
+    "topic": "WORK AND STUDIES"
+  },
+  {
+    "q_text": "What was your dream job when you were young?",
+    "part": 1,
+    "topic": "WORK AND STUDIES"
+  },
+  {
+    "q_text": "Have you changed your mind on your dream job?",
+    "part": 1,
+    "topic": "WORK AND STUDIES"
+  },
+  {
+    "q_text": "Please describe your hometown a little.",
+    "part": 1,
+    "topic": "HOMETOWN, AREA YOU LIVE IN"
+  },
+  {
+    "q_text": "What is your town well-known for?",
+    "part": 1,
+    "topic": "HOMETOWN, AREA YOU LIVE IN"
+  },
+  {
+    "q_text": "Do you like your hometown?",
+    "part": 1,
+    "topic": "HOMETOWN, AREA YOU LIVE IN"
+  },
+  {
+    "q_text": "Is that a big city or a small place?",
+    "part": 1,
+    "topic": "HOMETOWN, AREA YOU LIVE IN"
+  },
+  {
+    "q_text": "Do you think you will continue living there for a long time?",
+    "part": 1,
+    "topic": "HOMETOWN, AREA YOU LIVE IN"
+  },
+  {
+    "q_text": "What is the difference between living in the countryside and the city?",
+    "part": 1,
+    "topic": "HOMETOWN, AREA YOU LIVE IN"
+  },
+  {
+    "q_text": "How has your town changed over the last 20 years?",
+    "part": 1,
+    "topic": "HOMETOWN, AREA YOU LIVE IN"
+  },
+  {
+    "q_text": "What colour would you choose to paint the walls of your room?",
+    "part": 1,
+    "topic": "HOME AND ACCOMMODATION"
+  },
+  {
+    "q_text": "What colour would you never use in your home?",
+    "part": 1,
+    "topic": "HOME AND ACCOMMODATION"
+  },
+  {
+    "q_text": "Can you describe the place where you live?",
+    "part": 1,
+    "topic": "HOME AND ACCOMMODATION"
+  },
+  {
+    "q_text": "Which room does your family spend most of the time in?",
+    "part": 1,
+    "topic": "HOME AND ACCOMMODATION"
+  },
+  {
+    "q_text": "What can you see from the windows where you live?",
+    "part": 1,
+    "topic": "HOME AND ACCOMMODATION"
+  },
+  {
+    "q_text": "Do you prefer living in a house or a flat?",
+    "part": 1,
+    "topic": "HOME AND ACCOMMODATION"
+  },
+  {
+    "q_text": "What would you like to change in your flat?",
+    "part": 1,
+    "topic": "HOME AND ACCOMMODATION"
+  },
+  {
+    "q_text": "What's your favorite animal?",
+    "part": 1,
+    "topic": "ANIMALS AND PETS"
+  },
+  {
+    "q_text": "Have you ever had a pet?",
+    "part": 1,
+    "topic": "ANIMALS AND PETS"
+  },
+  {
+    "q_text": "What's the most popular animal in your country?",
+    "part": 1,
+    "topic": "ANIMALS AND PETS"
+  },
+  {
+    "q_text": "Where do you prefer to keep your pet, indoors or outdoors?",
+    "part": 1,
+    "topic": "ANIMALS AND PETS"
+  },
+  {
+    "q_text": "When was the last time you had a few days off?",
+    "part": 1,
+    "topic": "DAYS OFF"
+  },
+  {
+    "q_text": "What do you do when you have days off?",
+    "part": 1,
+    "topic": "DAYS OFF"
+  },
+  {
+    "q_text": "What would you like to do if you had a day off tomorrow?",
+    "part": 1,
+    "topic": "DAYS OFF"
+  },
+  {
+    "q_text": "Do you usually spend your days off with your parents or with your friends?",
+    "part": 1,
+    "topic": "DAYS OFF"
+  },
+  {
+    "q_text": "What kinds of food do you particularly like?",
+    "part": 1,
+    "topic": "FOOD"
+  },
+  {
+    "q_text": "What kinds of food are most popular in your country?",
+    "part": 1,
+    "topic": "FOOD"
+  },
+  {
+    "q_text": "Is there any food you don't like?",
+    "part": 1,
+    "topic": "FOOD"
+  },
+  {
+    "q_text": "What kind of food did you like when you were young?",
+    "part": 1,
+    "topic": "FOOD"
+  },
+  {
+    "q_text": "Have you ever locked yourself out?",
+    "part": 1,
+    "topic": "KEYS"
+  },
+  {
+    "q_text": "Do you think it's a good idea to leave your keys with a neighbour?",
+    "part": 1,
+    "topic": "KEYS"
+  },
+  {
+    "q_text": "Have you ever lost your keys?",
+    "part": 1,
+    "topic": "KEYS"
+  },
+  {
+    "q_text": "Do you always bring a lot of keys with you?",
+    "part": 1,
+    "topic": "KEYS"
+  },
+  {
+    "q_text": "Do you remember your dreams when you wake up?",
+    "part": 1,
+    "topic": "DREAMS"
+  },
+  {
+    "q_text": "Do you think dreams will affect life?",
+    "part": 1,
+    "topic": "DREAMS"
+  },
+  {
+    "q_text": "Do you think dreams have special meanings?",
+    "part": 1,
+    "topic": "DREAMS"
+  },
+  {
+    "q_text": "Do you like hearing other people's dreams?",
+    "part": 1,
+    "topic": "DREAMS"
+  },
+  {
+    "q_text": "Do you share your dreams with others?",
+    "part": 1,
+    "topic": "DREAMS"
+  },
+  {
+    "q_text": "Do you like reading?",
+    "part": 1,
+    "topic": "READING"
+  },
+  {
+    "q_text": "What books do you like to read?",
+    "part": 1,
+    "topic": "READING"
+  },
+  {
+    "q_text": "What book did you read recently?",
+    "part": 1,
+    "topic": "READING"
+  },
+  {
+    "q_text": "What did you learn from it?",
+    "part": 1,
+    "topic": "READING"
+  },
+  {
+    "q_text": "What kind of gifts are popular in your country?",
+    "part": 1,
+    "topic": "GIFTS"
+  },
+  {
+    "q_text": "What's the best gift you have ever received?",
+    "part": 1,
+    "topic": "GIFTS"
+  },
+  {
+    "q_text": "What do you give others as gifts?",
+    "part": 1,
+    "topic": "GIFTS"
+  },
+  {
+    "q_text": "What gift have you received recently?",
+    "part": 1,
+    "topic": "GIFTS"
+  },
+  {
+    "q_text": "How do we choose gifts?",
+    "part": 1,
+    "topic": "GIFTS"
+  },
+  {
+    "q_text": "Do you like to get up early?",
+    "part": 1,
+    "topic": "MORNING TIME"
+  },
+  {
+    "q_text": "What is your morning routine?",
+    "part": 1,
+    "topic": "MORNING TIME"
+  },
+  {
+    "q_text": "What do you usually do in the morning?",
+    "part": 1,
+    "topic": "MORNING TIME"
+  },
+  {
+    "q_text": "Do you have any hobbies?",
+    "part": 1,
+    "topic": "HOBBY"
+  },
+  {
+    "q_text": "Do you have the same hobbies as your family members?",
+    "part": 1,
+    "topic": "HOBBY"
+  },
+  {
+    "q_text": "Did you have any hobbies when you were a child?",
+    "part": 1,
+    "topic": "HOBBY"
+  },
+  {
+    "q_text": "Do you have a hobby that you've had since childhood?",
+    "part": 1,
+    "topic": "HOBBY"
+  },
+  {
+    "q_text": "Have you ever been part of a sports team?",
+    "part": 1,
+    "topic": "SPORTS TEAMS"
+  },
+  {
+    "q_text": "Do you type on a desktop or laptop keyboard every day?",
+    "part": 1,
+    "topic": "TYPING"
+  },
+  {
+    "q_text": "When did you learn how to type on a keyboard?",
+    "part": 1,
+    "topic": "TYPING"
+  },
+  {
+    "q_text": "How do you improve your typing?",
+    "part": 1,
+    "topic": "TYPING"
+  },
+  {
+    "q_text": "Do you walk a lot?",
+    "part": 1,
+    "topic": "WALKING"
+  },
+  {
+    "q_text": "Did you often go outside to have a walk when you were a child?",
+    "part": 1,
+    "topic": "WALKING"
+  },
+  {
+    "q_text": "Why do people like to walk in parks?",
+    "part": 1,
+    "topic": "WALKING"
+  },
+  {
+    "q_text": "Where would you like to take a long walk if you had the chance?",
+    "part": 1,
+    "topic": "WALKING"
+  },
+  {
+    "q_text": "Where have you gone for a walk lately?",
+    "part": 1,
+    "topic": "WALKING"
+  },
+  {
+    "q_text": "Do you take photos of buildings?",
+    "part": 1,
+    "topic": "BUILDINGS"
+  },
+  {
+    "q_text": "Is there a building that you would like to visit?",
+    "part": 1,
+    "topic": "BUILDINGS"
+  },
+  {
+    "q_text": "Do you like taking pictures of different views?",
+    "part": 1,
+    "topic": "VIEWS"
+  },
+  {
+    "q_text": "Do you prefer views in urban areas or rural areas?",
+    "part": 1,
+    "topic": "VIEWS"
+  },
+  {
+    "q_text": "Do you prefer views in your own country or in other countries?",
+    "part": 1,
+    "topic": "VIEWS"
+  },
+  {
+    "q_text": "Do you like to take pictures of good scenery?",
+    "part": 1,
+    "topic": "SCENERY"
+  },
+  {
+    "q_text": "What did you enjoy doing as a child?",
+    "part": 1,
+    "topic": "CHILDHOOD ACTIVITIES"
+  },
+  {
+    "q_text": "Did you enjoy your childhood?",
+    "part": 1,
+    "topic": "CHILDHOOD ACTIVITIES"
+  },
+  {
+    "q_text": "Describe a film you watched recently that you felt disappointed about. You should say: what it was, why you decided to watch it, why it made you disappointed",
+    "part": 2,
+    "topic": "A film you felt disappointed about"
+  },
+  {
+    "q_text": "Describe a family member that did something that made you feel proud. You should say: who this person is, what this person did, why you felt proud of them",
+    "part": 2,
+    "topic": "A family member who made you proud"
+  },
+  {
+    "q_text": "Describe your perfect job. You should say: what it is, how you can get this job, what kinds of work you would do for the job, explain why you want to have it",
+    "part": 2,
+    "topic": "Your perfect job"
+  },
+  {
+    "q_text": "Describe an experience when you were not allowed to use a mobile phone. You should say: what you did, when it was, where it was, why you were not allowed to use a mobile phone",
+    "part": 2,
+    "topic": "Not allowed to use a mobile phone"
+  },
+  {
+    "q_text": "Describe a famous person you'd like to meet. You should say: who this person is, where you'd like to meet this person, how you know this person, why you'd like to meet this person",
+    "part": 2,
+    "topic": "A famous person you'd like to meet"
+  },
+  {
+    "q_text": "Describe a place in your home where you like to relax. You should say: where it is, what it is like, what you like doing there, why you feel relaxed there",
+    "part": 2,
+    "topic": "A place in your home to relax"
+  },
+  {
+    "q_text": "Describe something you can't live without (not a computer or phone). You should say: what it is, how you use it, how often you use it, how it helps you, why you can't live without it",
+    "part": 2,
+    "topic": "Something you can't live without"
+  },
+  {
+    "q_text": "Describe an occasion when you saw a lot of people smiling. You should say: what occasion it was, where it was, why they were smiling",
+    "part": 2,
+    "topic": "Saw a lot of people smiling"
+  },
+  {
+    "q_text": "Describe a time when you gave advice to others. You should say: who you gave advice to, what the situation was, what advice you gave, what the result was",
+    "part": 2,
+    "topic": "Gave advice to others"
+  },
+  {
+    "q_text": "Describe an app or program in your computer or phone. You should say: what app or program it is, when and where you found it, how you use it, how you feel about it",
+    "part": 2,
+    "topic": "An app or program"
+  },
+  {
+    "q_text": "Describe a country in which you would like to work or live for a short period of time. You should say: what country or city it is, how you know about it, what type of work you would like to do there, why you would like to work in this country",
+    "part": 2,
+    "topic": "A country to work or live in"
+  },
+  {
+    "q_text": "Describe an important old thing that your family has kept for a long time. You should say: what it is, how your family first got this thing, how long your family has kept it, why this thing is important to your family",
+    "part": 2,
+    "topic": "Important old family item"
+  },
+  {
+    "q_text": "Describe a long bike, motorbike, or car trip that you would like to take. You should say: when you want to go, where you want to go, how long it will take you, why it is interesting",
+    "part": 2,
+    "topic": "A long road trip"
+  },
+  {
+    "q_text": "Describe a shop you often visit. You should say: what shop it is, where it is, what it sells, why you like it",
+    "part": 2,
+    "topic": "A shop you often visit"
+  },
+  {
+    "q_text": "Describe a time you needed to use your imagination. You should say: what you did using imagination, when it was, whether it was easy or difficult, how you felt",
+    "part": 2,
+    "topic": "Needed to use imagination"
+  },
+  {
+    "q_text": "Describe a film you watched and enjoyed. You should say: what the film was about, when and where you watched it, why you liked it and why you want to watch it again",
+    "part": 2,
+    "topic": "A film you enjoyed"
+  },
+  {
+    "q_text": "Describe a story you read recently. You should say: what it is about, when you read it, whether you liked it, what you learned from it",
+    "part": 2,
+    "topic": "A story you read recently"
+  },
+  {
+    "q_text": "Describe a person who solved a problem in a smart way. You should say: who this person is, what the problem was, what solution they gave, why you think it was a clever solution",
+    "part": 2,
+    "topic": "Solved a problem in a smart way"
+  },
+  {
+    "q_text": "Describe a person who encouraged you to protect the nature. You should say: who this person is, how this person encouraged you, what this person encouraged you to do, how you feel about this person",
+    "part": 2,
+    "topic": "Encouraged you to protect nature"
+  },
+  {
+    "q_text": "Describe an occasion when you paid more than expected. You should say: what you bought, how much you paid, why you bought it, why you paid more",
+    "part": 2,
+    "topic": "Paid more than expected"
+  },
+  {
+    "q_text": "Describe a person who often helps others. You should say: who this person is, how you know this person, how this person helps you, why you think this person is helpful",
+    "part": 2,
+    "topic": "A person who helps others"
+  },
+  {
+    "q_text": "Describe a piece of technology (not a phone) that you would like to own. You should say: what it is, how you knew it, how much it costs, why you'd like to own it",
+    "part": 2,
+    "topic": "Technology you'd like to own"
+  },
+  {
+    "q_text": "Describe a music event that you didn't enjoy. You should say: what it was, who you went with, why you went there, why you didn't like it",
+    "part": 2,
+    "topic": "Music event you didn't enjoy"
+  },
+  {
+    "q_text": "Describe a time when you encouraged someone to do something that they didn't want to do. You should say: who this person is, what you encouraged them to do, how this person reacted, why you encouraged this person to do it",
+    "part": 2,
+    "topic": "Encouraged someone to do something"
+  },
+  {
+    "q_text": "Describe one of your friends who learned something new (not from a teacher). You should say: who this person is, what this person learned, why they learned it, whether it would be easier to learn from a teacher",
+    "part": 2,
+    "topic": "Friend who learned something new"
+  },
+  {
+    "q_text": "Describe a person who makes plans a lot and is good at planning. You should say: who this person is, how you knew this person, what plans this person makes, how you feel about this person",
+    "part": 2,
+    "topic": "A person good at planning"
+  },
+  {
+    "q_text": "Describe a child who loves drawing or painting. You should say: who this child is, how you knew him or her, how often he or she draws or paints, why he or she likes drawing or painting",
+    "part": 2,
+    "topic": "A child who loves drawing/painting"
+  },
+  {
+    "q_text": "Describe a quiet place that you like to go to. You should say: what place it is, how often you go there and when, what you do there, why you like this place",
+    "part": 2,
+    "topic": "A quiet place you like"
+  },
+  {
+    "q_text": "Are actors and actresses important to movies?",
+    "part": 3,
+    "topic": "MOVIES"
+  },
+  {
+    "q_text": "Do you think films with famous actors or actresses are more likely to become successful films?",
+    "part": 3,
+    "topic": "MOVIES"
+  },
+  {
+    "q_text": "Are historical films popular in your country?",
+    "part": 3,
+    "topic": "MOVIES"
+  },
+  {
+    "q_text": "Why are Japanese animated films so popular?",
+    "part": 3,
+    "topic": "MOVIES"
+  },
+  {
+    "q_text": "Do you believe movie reviews?",
+    "part": 3,
+    "topic": "MOVIES"
+  },
+  {
+    "q_text": "What kinds of movies are popular in your country?",
+    "part": 3,
+    "topic": "MOVIES"
+  },
+  {
+    "q_text": "Should actors be paid more?",
+    "part": 3,
+    "topic": "MOVIES"
+  },
+  {
+    "q_text": "Should famous actors and actresses be paid a lot of money?",
+    "part": 3,
+    "topic": "MOVIES"
+  },
+  {
+    "q_text": "On what occasions would adults feel proud of themselves?",
+    "part": 3,
+    "topic": "BEING PROUD"
+  },
+  {
+    "q_text": "Is it a good idea to reward children for doing homework or housework?",
+    "part": 3,
+    "topic": "BEING PROUD"
+  },
+  {
+    "q_text": "What would children do to make their parents proud?",
+    "part": 3,
+    "topic": "BEING PROUD"
+  },
+  {
+    "q_text": "What did you do to make your parents proud when you were young?",
+    "part": 3,
+    "topic": "BEING PROUD"
+  },
+  {
+    "q_text": "What advantages of yours make you proud?",
+    "part": 3,
+    "topic": "BEING PROUD"
+  },
+  {
+    "q_text": "When was the last time that you felt proud of yourself?",
+    "part": 3,
+    "topic": "BEING PROUD"
+  },
+  {
+    "q_text": "Is it good to reward children too often?",
+    "part": 3,
+    "topic": "BEING PROUD"
+  },
+  {
+    "q_text": "What kind of jobs do children like?",
+    "part": 3,
+    "topic": "JOBS"
+  },
+  {
+    "q_text": "How can people find a perfect job?",
+    "part": 3,
+    "topic": "JOBS"
+  },
+  {
+    "q_text": "What factors should people take into account when choosing a job?",
+    "part": 3,
+    "topic": "JOBS"
+  },
+  {
+    "q_text": "Which is more important when choosing a job, high salary or interest?",
+    "part": 3,
+    "topic": "JOBS"
+  },
+  {
+    "q_text": "Is salary the main reason people choose a certain job?",
+    "part": 3,
+    "topic": "JOBS"
+  },
+  {
+    "q_text": "Do young and old people use phones in the same way?",
+    "part": 3,
+    "topic": "MOBILE PHONES"
+  },
+  {
+    "q_text": "What positive and negative effects do mobile phones have on friendship?",
+    "part": 3,
+    "topic": "MOBILE PHONES"
+  },
+  {
+    "q_text": "Is it a waste of time to take pictures with mobile phones?",
+    "part": 3,
+    "topic": "MOBILE PHONES"
+  },
+  {
+    "q_text": "Many people think mobile phones can be annoying at times. Can you give any examples of that?",
+    "part": 3,
+    "topic": "MOBILE PHONES"
+  },
+  {
+    "q_text": "Do you think there should be laws on the use of mobile phones?",
+    "part": 3,
+    "topic": "MOBILE PHONES"
+  },
+  {
+    "q_text": "What are the advantages and disadvantages of being a famous child?",
+    "part": 3,
+    "topic": "FAME/CHILDREN"
+  },
+  {
+    "q_text": "What can children do with their fame?",
+    "part": 3,
+    "topic": "FAME/CHILDREN"
+  },
+  {
+    "q_text": "What can today's children do to become famous?",
+    "part": 3,
+    "topic": "FAME/CHILDREN"
+  },
+  {
+    "q_text": "Do people become famous just because of their talent?",
+    "part": 3,
+    "topic": "FAME/CHILDREN"
+  },
+  {
+    "q_text": "Why is it difficult for some people to relax?",
+    "part": 3,
+    "topic": "HAVING A REST/DOING EXERCISE"
+  },
+  {
+    "q_text": "Do you think there should be classes for training young people and children how to relax?",
+    "part": 3,
+    "topic": "HAVING A REST/DOING EXERCISE"
+  },
+  {
+    "q_text": "Which is more important, mental relaxation or physical relaxation?",
+    "part": 3,
+    "topic": "HAVING A REST/DOING EXERCISE"
+  },
+  {
+    "q_text": "Do people in your country exercise after work?",
+    "part": 3,
+    "topic": "HAVING A REST/DOING EXERCISE"
+  },
+  {
+    "q_text": "What are the benefits of doing exercise?",
+    "part": 3,
+    "topic": "HAVING A REST/DOING EXERCISE"
+  },
+  {
+    "q_text": "What is the place where people spend most of their time in their home?",
+    "part": 3,
+    "topic": "HAVING A REST/DOING EXERCISE"
+  },
+  {
+    "q_text": "Do you think that keeping old things in a family is a great way to connect with the past?",
+    "part": 3,
+    "topic": "NEW AND OLD THINGS/TOYS"
+  },
+  {
+    "q_text": "Why do grown-ups hate to throw away old things?",
+    "part": 3,
+    "topic": "NEW AND OLD THINGS/TOYS"
+  },
+  {
+    "q_text": "How have people's shopping habits changed in recent decades?",
+    "part": 3,
+    "topic": "NEW AND OLD THINGS/TOYS"
+  },
+  {
+    "q_text": "How has the way people buy things changed?",
+    "part": 3,
+    "topic": "NEW AND OLD THINGS/TOYS"
+  },
+  {
+    "q_text": "How do shops attract customers?",
+    "part": 3,
+    "topic": "NEW AND OLD THINGS/TOYS"
+  },
+  {
+    "q_text": "What makes people buy new things?",
+    "part": 3,
+    "topic": "NEW AND OLD THINGS/TOYS"
+  },
+  {
+    "q_text": "Why do all children like toys?",
+    "part": 3,
+    "topic": "NEW AND OLD THINGS/TOYS"
+  },
+  {
+    "q_text": "Do you think it's good for a child to take his or her favourite toy with them all the time?",
+    "part": 3,
+    "topic": "NEW AND OLD THINGS/TOYS"
+  },
+  {
+    "q_text": "Do you think people who smile a lot are more friendly?",
+    "part": 3,
+    "topic": "SMILING"
+  },
+  {
+    "q_text": "Why do most people smile in photographs?",
+    "part": 3,
+    "topic": "SMILING"
+  },
+  {
+    "q_text": "Do women smile more than men? Why?",
+    "part": 3,
+    "topic": "SMILING"
+  },
+  {
+    "q_text": "Do people smile more when they are younger or older?",
+    "part": 3,
+    "topic": "SMILING"
+  },
+  {
+    "q_text": "What problems can people face if they ask many different people for advice?",
+    "part": 3,
+    "topic": "ADVICE"
+  },
+  {
+    "q_text": "Why do some people like to ask others for advice on almost everything?",
+    "part": 3,
+    "topic": "ADVICE"
+  },
+  {
+    "q_text": "In general, what kind of person is most suitable for giving advice to others?",
+    "part": 3,
+    "topic": "ADVICE"
+  },
+  {
+    "q_text": "Should people prepare before giving advice?",
+    "part": 3,
+    "topic": "ADVICE"
+  },
+  {
+    "q_text": "Is it good to ask advice from strangers online?",
+    "part": 3,
+    "topic": "ADVICE"
+  },
+  {
+    "q_text": "What are the personalities of people whose job is to give advice to others?",
+    "part": 3,
+    "topic": "ADVICE"
+  },
+  {
+    "q_text": "What are the drawbacks of having too many apps?",
+    "part": 3,
+    "topic": "APPS OR PROGRAMS"
+  },
+  {
+    "q_text": "Why do some people not like using apps?",
+    "part": 3,
+    "topic": "APPS OR PROGRAMS"
+  },
+  {
+    "q_text": "What are the most and the least popular apps in your country?",
+    "part": 3,
+    "topic": "APPS OR PROGRAMS"
+  },
+  {
+    "q_text": "What kind of apps do you have on your phone?",
+    "part": 3,
+    "topic": "APPS OR PROGRAMS"
+  },
+  {
+    "q_text": "Why do people like travelling?",
+    "part": 3,
+    "topic": "WORKING ABROAD/TRAVELLING"
+  },
+  {
+    "q_text": "What jobs can people do abroad for a short period of time?",
+    "part": 3,
+    "topic": "WORKING ABROAD/TRAVELLING"
+  },
+  {
+    "q_text": "Is it good that now people have an opportunity to work abroad?",
+    "part": 3,
+    "topic": "WORKING ABROAD/TRAVELLING"
+  },
+  {
+    "q_text": "What are the differences between the things that people keep today and the things that people kept in the past?",
+    "part": 3,
+    "topic": "OLD THINGS, MUSEUMS"
+  },
+  {
+    "q_text": "As well as family photographs, what are some other things that people keep in their family for a long time?",
+    "part": 3,
+    "topic": "OLD THINGS, MUSEUMS"
+  },
+  {
+    "q_text": "In your culture, what sorts of things do people pass down from generation to generation?",
+    "part": 3,
+    "topic": "OLD THINGS, MUSEUMS"
+  },
+  {
+    "q_text": "How are transportation systems in rural and urban areas different?",
+    "part": 3,
+    "topic": "TRANSPORTATION/AIR POLLUTION"
+  },
+  {
+    "q_text": "Which mode of transport is more popular in your country, a bicycle or car?",
+    "part": 3,
+    "topic": "TRANSPORTATION/AIR POLLUTION"
+  },
+  {
+    "q_text": "Do you think that people buy a lot of things that they don't need?",
+    "part": 3,
+    "topic": "SHOPPING"
+  },
+  {
+    "q_text": "What kind of jobs require imagination?",
+    "part": 3,
+    "topic": "IMAGINATION"
+  },
+  {
+    "q_text": "Do scientists need imagination in their work?",
+    "part": 3,
+    "topic": "IMAGINATION"
+  },
+  {
+    "q_text": "What makes a movie a blockbuster?",
+    "part": 3,
+    "topic": "FILMS"
+  },
+  {
+    "q_text": "Are actors and actresses important to movies?",
+    "part": 3,
+    "topic": "FILMS"
+  },
+  {
+    "q_text": "Do you think films with famous actors or actresses are more likely to become successful films?",
+    "part": 3,
+    "topic": "FILMS"
+  },
+  {
+    "q_text": "What kinds of movies are successful in your country?",
+    "part": 3,
+    "topic": "FILMS"
+  },
+  {
+    "q_text": "Do people in your country still like to go to a cinema?",
+    "part": 3,
+    "topic": "FILMS"
+  },
+  {
+    "q_text": "Where do people watch movies?",
+    "part": 3,
+    "topic": "FILMS"
+  },
+  {
+    "q_text": "Why do most children like listening to stories before bedtime?",
+    "part": 3,
+    "topic": "STORIES"
+  },
+  {
+    "q_text": "Is a good storyline important for a movie?",
+    "part": 3,
+    "topic": "STORIES"
+  },
+  {
+    "q_text": "Why do children like hearing the same bedtime story?",
+    "part": 3,
+    "topic": "STORIES"
+  },
+  {
+    "q_text": "Are people born clever or need to learn to be clever?",
+    "part": 3,
+    "topic": "INTELLIGENCE"
+  },
+  {
+    "q_text": "Why are some children more intelligent than others?",
+    "part": 3,
+    "topic": "INTELLIGENCE"
+  },
+  {
+    "q_text": "Do you think society needs people with different types of intelligence?",
+    "part": 3,
+    "topic": "INTELLIGENCE"
+  },
+  {
+    "q_text": "Does modern society need talents of all kinds?",
+    "part": 3,
+    "topic": "INTELLIGENCE"
+  },
+  {
+    "q_text": "How can parents teach their children to protect nature?",
+    "part": 3,
+    "topic": "ENVIRONMENTAL PROTECTION"
+  },
+  {
+    "q_text": "Should schools teach children to get close to nature?",
+    "part": 3,
+    "topic": "ENVIRONMENTAL PROTECTION"
+  },
+  {
+    "q_text": "Do you think there should be laws to protect nature?",
+    "part": 3,
+    "topic": "ENVIRONMENTAL PROTECTION"
+  },
+  {
+    "q_text": "What do young people spend money on?",
+    "part": 3,
+    "topic": "SPENDING/SAVING MONEY"
+  },
+  {
+    "q_text": "Is it good and necessary to teach children to save money?",
+    "part": 3,
+    "topic": "SPENDING/SAVING MONEY"
+  },
+  {
+    "q_text": "Do you think it is important to save money?",
+    "part": 3,
+    "topic": "SPENDING/SAVING MONEY"
+  },
+  {
+    "q_text": "Do you think that people buy a lot of things that they don't need?",
+    "part": 3,
+    "topic": "SPENDING/SAVING MONEY"
+  },
+  {
+    "q_text": "What can children help parents with?",
+    "part": 3,
+    "topic": "HELPING OTHERS"
+  },
+  {
+    "q_text": "In your view, should children be taught to help others?",
+    "part": 3,
+    "topic": "HELPING OTHERS"
+  },
+  {
+    "q_text": "Should children help their parents with household chores?",
+    "part": 3,
+    "topic": "HELPING OTHERS"
+  },
+  {
+    "q_text": "What kind of help do people need when looking for a new job?",
+    "part": 3,
+    "topic": "HELPING OTHERS"
+  },
+  {
+    "q_text": "Who should people ask for help, colleagues or family members?",
+    "part": 3,
+    "topic": "HELPING OTHERS"
+  },
+  {
+    "q_text": "What are the differences between talking with friends online and face-to-face?",
+    "part": 3,
+    "topic": "TECHNOLOGY/COMMUNICATION"
+  },
+  {
+    "q_text": "What technology do people currently use?",
+    "part": 3,
+    "topic": "TECHNOLOGY/COMMUNICATION"
+  },
+  {
+    "q_text": "Does technological development have a negative impact on communication among people?",
+    "part": 3,
+    "topic": "TECHNOLOGY/COMMUNICATION"
+  },
+  {
+    "q_text": "Do you think technology unites or separates people?",
+    "part": 3,
+    "topic": "TECHNOLOGY/COMMUNICATION"
+  },
+  {
+    "q_text": "What effects does technology have on people’s relationships?",
+    "part": 3,
+    "topic": "TECHNOLOGY/COMMUNICATION"
+  },
+  {
+    "q_text": "What are the differences between the technology of the past and that of today?",
+    "part": 3,
+    "topic": "TECHNOLOGY/COMMUNICATION"
+  },
+  {
+    "q_text": "What are the differences between making friends in real life and online?",
+    "part": 3,
+    "topic": "TECHNOLOGY/COMMUNICATION"
+  },
+  {
+    "q_text": "What kind of music events do people like today?",
+    "part": 3,
+    "topic": "MUSIC EVENTS"
+  },
+  {
+    "q_text": "Is the role of a leader important in a group?",
+    "part": 3,
+    "topic": "ENCOURAGING OTHERS"
+  },
+  {
+    "q_text": "How can leaders encourage employees?",
+    "part": 3,
+    "topic": "ENCOURAGING OTHERS"
+  },
+  {
+    "q_text": "When should parents encourage their children?",
+    "part": 3,
+    "topic": "ENCOURAGING OTHERS"
+  },
+  {
+    "q_text": "Do you think learning many subjects at one time is better or learning one subject is better?",
+    "part": 3,
+    "topic": "LEARNING NEW THINGS"
+  },
+  {
+    "q_text": "Do you think learning many subjects is beneficial to your work?",
+    "part": 3,
+    "topic": "LEARNING NEW THINGS"
+  },
+  {
+    "q_text": "Do you think all teachers should have entertaining teaching styles?",
+    "part": 3,
+    "topic": "LEARNING NEW THINGS"
+  },
+  {
+    "q_text": "Should teachers make lessons fun?",
+    "part": 3,
+    "topic": "LEARNING NEW THINGS"
+  },
+  {
+    "q_text": "Is it important for people to learn new skills all life long?",
+    "part": 3,
+    "topic": "LEARNING NEW THINGS"
+  },
+  {
+    "q_text": "Do you think enterprises should provide training for their employees?",
+    "part": 3,
+    "topic": "LEARNING NEW THINGS"
+  },
+  {
+    "q_text": "In general, do you think planning is important?",
+    "part": 3,
+    "topic": "MAKING PLANS"
+  },
+  {
+    "q_text": "Do you think everyone in your country makes everyday plans?",
+    "part": 3,
+    "topic": "MAKING PLANS"
+  },
+  {
+    "q_text": "Do you think children should plan their future careers?",
+    "part": 3,
+    "topic": "MAKING PLANS"
+  },
+  {
+    "q_text": "Should children ask their teachers or parents for advice when making plans?",
+    "part": 3,
+    "topic": "MAKING PLANS"
+  },
+  {
+    "q_text": "What activities do we need to plan ahead?",
+    "part": 3,
+    "topic": "MAKING PLANS"
+  },
+  {
+    "q_text": "Is making study plans popular among young people?",
+    "part": 3,
+    "topic": "MAKING PLANS"
+  },
+  {
+    "q_text": "Do you think choosing a college major is closely related to a person's future career?",
+    "part": 3,
+    "topic": "MAKING PLANS"
+  },
+  {
+    "q_text": "What is the right age for a child to learn drawing?",
+    "part": 3,
+    "topic": "DRAWING/MUSEUMS"
+  },
+  {
+    "q_text": "Why do most children draw more often than adults do?",
+    "part": 3,
+    "topic": "DRAWING/MUSEUMS"
+  },
+  {
+    "q_text": "Why do some people visit galleries or museums instead of viewing artworks online?",
+    "part": 3,
+    "topic": "DRAWING/MUSEUMS"
+  },
+  {
+    "q_text": "Do you think galleries and museums should be free of charge?",
+    "part": 3,
+    "topic": "DRAWING/MUSEUMS"
+  },
+  {
+    "q_text": "How do artworks inspire people?",
+    "part": 3,
+    "topic": "DRAWING/MUSEUMS"
+  }
+]
