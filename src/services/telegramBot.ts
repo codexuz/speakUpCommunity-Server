@@ -63,7 +63,7 @@ function registerHandlers(bot: Bot) {
       });
 
       await ctx.reply(
-        `✅ Hisob muvaffaqiyatli ulandi!\nSalom, ${user.fullName}. Parolni tiklash kodlarini shu yerda olasiz. Ilovaga qaytib *Check Connection* tugmasini bosing!`,
+        `✅ Hisob muvaffaqiyatli ulandi!\nSalom, ${user.fullName}. Parolni tiklash kodlarini shu yerda olasiz. Ilovaga qaytib *Verify* tugmasini bosing!`,
         { parse_mode: 'Markdown' }
       );
     } catch (err) {
