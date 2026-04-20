@@ -7,7 +7,7 @@ export function createRateLimiter(options?: {
   max?: number;
   prefix?: string;
 }) {
-  const { windowMs = 60_000, max = 60, prefix = 'rl:' } = options || {};
+  const { windowMs = 1_000, max = 100, prefix = 'rl:' } = options || {};
 
   const store = process.env.REDIS_URL
     ? new RedisStore({
@@ -31,12 +31,12 @@ export const defaultLimiter = createRateLimiter();
 
 export const authLimiter = createRateLimiter({
   windowMs: 15 * 60_000, // 15 minutes
-  max: 20,
+  max: 40,
   prefix: 'rl:auth:',
 });
 
 export const uploadLimiter = createRateLimiter({
   windowMs: 60_000,
-  max: 10,
+  max: 20,
   prefix: 'rl:upload:',
 });
