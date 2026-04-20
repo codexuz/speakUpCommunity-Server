@@ -546,7 +546,7 @@ router.put('/:groupId/messages/:messageId', async (req: Request, res: Response) 
 });
 
 // ── DELETE /api/group-chat/:groupId/messages/:messageId ──────────
-// Soft-delete a message (sender or group owner/teacher)
+// Hard-delete a message and its attachments (sender or group owner/teacher)
 router.delete('/:groupId/messages/:messageId', async (req: Request, res: Response) => {
   try {
     const auth = (req as AuthenticatedRequest).auth!;
@@ -563,10 +563,6 @@ router.delete('/:groupId/messages/:messageId', async (req: Request, res: Respons
       res.status(404).json({ error: 'Message not found' });
       return;
     }
-    if (message.isDeleted) {
-      res.status(400).json({ error: 'Message already deleted' });
-      return;
-    }
 
     // Sender can delete own messages; owner/teacher can delete anyone's
     const canDelete =
@@ -579,9 +575,8 @@ router.delete('/:groupId/messages/:messageId', async (req: Request, res: Respons
       return;
     }
 
-    await prisma.groupMessage.update({
+    await prisma.groupMessage.delete({
       where: { id: message.id },
-      data: { isDeleted: true, text: null },
     });
 
     emitGroupMessageDeleted(groupId, message.id.toString());
