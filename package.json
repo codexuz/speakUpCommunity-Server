@@ -9,7 +9,8 @@
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:studio": "prisma studio",
-    "db:seed": "tsx prisma/seed.ts"
+    "db:seed": "tsx prisma/seed.ts",
+    "db:seed:cefr:writing": "tsx prisma/cefrWritingSeed.ts"
   },
   "dependencies": {
     "@deepgram/sdk": "^5.0.0",
