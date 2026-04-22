@@ -238,7 +238,7 @@ model SampleAnswer {
 
 model Response {
     id              BigInt   @id @default(autoincrement())
-    questionId      Int      @map("question_id")
+    questionId      Int?     @map("question_id")
     studentId       String   @map("student_id") @db.Uuid
     sessionId       BigInt?  @map("session_id")
     localUri        String?  @map("local_uri")
@@ -248,7 +248,7 @@ model Response {
     audioProcessed  Boolean  @default(false) @map("audio_processed")
     createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
 
-    question   Question     @relation(fields: [questionId], references: [id], onDelete: Cascade)
+    question   Question?    @relation(fields: [questionId], references: [id], onDelete: Cascade)
     student    User         @relation(fields: [studentId], references: [id], onDelete: Cascade)
     session    TestSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
     aiFeedback AIFeedback?
