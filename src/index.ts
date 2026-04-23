@@ -72,12 +72,12 @@ const wellKnownDir = path.join(__dirname, '..', 'public', '.well-known');
 
 app.get('/.well-known/apple-app-site-association', (_req, res) => {
   res.setHeader('Content-Type', 'application/json');
-  res.sendFile(path.join(wellKnownDir, 'apple-app-site-association'));
+  res.sendFile(path.join(wellKnownDir, 'apple-app-site-association'), { dotfiles: 'allow' });
 });
 
 app.get('/.well-known/assetlinks.json', (_req, res) => {
   res.setHeader('Content-Type', 'application/json');
-  res.sendFile(path.join(wellKnownDir, 'assetlinks.json'));
+  res.sendFile(path.join(wellKnownDir, 'assetlinks.json'), { dotfiles: 'allow' });
 });
 
 // Serve remaining public assets (images, etc.)
