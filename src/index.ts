@@ -3,6 +3,7 @@ import cors from 'cors';
 import express from 'express';
 import fs from 'fs';
 import http from 'http';
+import path from 'path';
 import https from 'https';
 
 import { authLimiter, defaultLimiter } from './middleware/rateLimiter';
@@ -63,6 +64,24 @@ app.use(
   })
 );
 app.use(express.json());
+
+// ── Well-known / Universal Links ────────────────────────────────
+// Served before the rate limiter and without redirects.
+// Apple requires Content-Type: application/json and HTTPS with no redirects.
+const wellKnownDir = path.join(__dirname, '..', 'public', '.well-known');
+
+app.get('/.well-known/apple-app-site-association', (_req, res) => {
+  res.setHeader('Content-Type', 'application/json');
+  res.sendFile(path.join(wellKnownDir, 'apple-app-site-association'));
+});
+
+app.get('/.well-known/assetlinks.json', (_req, res) => {
+  res.setHeader('Content-Type', 'application/json');
+  res.sendFile(path.join(wellKnownDir, 'assetlinks.json'));
+});
+
+// Serve remaining public assets (images, etc.)
+app.use(express.static(path.join(__dirname, '..', 'public')));
 
 // Telegram bot webhook — mounted before the rate limiter so Telegram
 // server calls are not throttled and don't consume user quotas.

@@ -1,6 +1,15 @@
 import { Request, Response, Router } from 'express';
-import { AuthenticatedRequest, authenticateRequest } from '../middleware/auth';
+import {
+  AuthenticatedRequest,
+  authenticateRequest,
+  blacklistToken,
+  isPasswordHash,
+  requireRole,
+  revokeAllSessions,
+  verifyPassword,
+} from '../middleware/auth';
 import prisma from '../prisma';
+import { deleteAudio } from '../services/minio';
 
 const router = Router();
 
@@ -31,6 +40,97 @@ function mapUserSummary(user: {
     verifiedTeacher: user.verifiedTeacher,
   };
 }
+
+// DELETE /api/users/me  — authenticated user deletes their own account
+router.delete('/me', async (req: Request, res: Response) => {
+  try {
+    const auth = (req as AuthenticatedRequest).auth!;
+    const { password } = req.body as { password?: string };
+
+    if (!password) {
+      res.status(400).json({ error: 'Password is required to delete your account' });
+      return;
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: auth.userId },
+      select: { id: true, password: true, avatarUrl: true },
+    });
+
+    if (!user) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
+
+    const passwordMatches = isPasswordHash(user.password)
+      ? await verifyPassword(password, user.password)
+      : user.password === password;
+
+    if (!passwordMatches) {
+      res.status(401).json({ error: 'Incorrect password' });
+      return;
+    }
+
+    // Revoke all Redis sessions before deletion
+    await revokeAllSessions(auth.userId);
+
+    // Blacklist the current token
+    const token = (req.headers.authorization as string).slice(7);
+    await blacklistToken(token);
+
+    // Delete avatar from object storage if present
+    if (user.avatarUrl) {
+      try {
+        const fileName = user.avatarUrl.split('/').pop();
+        if (fileName) await deleteAudio(fileName);
+      } catch {
+        // Non-fatal — proceed with account deletion
+      }
+    }
+
+    await prisma.user.delete({ where: { id: auth.userId } });
+
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// DELETE /api/users/admin/:userId  — admin deletes any account
+router.delete('/admin/:userId', requireRole('admin'), async (req: Request, res: Response) => {
+  try {
+    const userId = req.params.userId as string;
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, avatarUrl: true },
+    });
+
+    if (!user) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
+
+    // Revoke all Redis sessions for the target user
+    await revokeAllSessions(userId);
+
+    // Delete avatar from object storage if present
+    if (user.avatarUrl) {
+      try {
+        const fileName = user.avatarUrl.split('/').pop();
+        if (fileName) await deleteAudio(fileName);
+      } catch {
+        // Non-fatal — proceed with account deletion
+      }
+    }
+
+    await prisma.user.delete({ where: { id: userId } });
+
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
 
 // POST /api/users/:userId/follow
 router.post('/:userId/follow', async (req: Request, res: Response) => {

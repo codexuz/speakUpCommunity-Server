@@ -1,0 +1,15 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": ["4C73V8D68X.uz.speakup.edumo"],
+        "components": [
+          { "/": "/*", "comment": "Match all paths" }
+        ]
+      }
+    ]
+  },
+  "webcredentials": {
+    "apps": ["4C73V8D68X.uz.speakup.edumo"]
+  }
+}
