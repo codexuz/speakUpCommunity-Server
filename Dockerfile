@@ -31,6 +31,15 @@ RUN npx prisma generate
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/public ./public
 
-EXPOSE 5000
+# Install nginx and configure it as a reverse proxy
+RUN apk add --no-cache nginx
 
-CMD ["node", "dist/index.js"]
+COPY nginx.conf /etc/nginx/nginx.conf
+COPY docker-entrypoint.sh /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh
+
+# 80  → nginx (public-facing)
+# 5000 → Node.js (internal only)
+EXPOSE 80 5000
+
+CMD ["/docker-entrypoint.sh"]
