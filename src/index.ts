@@ -65,13 +65,8 @@ app.use(
 );
 app.use(express.json());
 
-
-// Serve remaining public assets (images, etc.)
-app.use(express.static(path.join(__dirname, '..', 'public')));
-
-
 // ── Well-known / Universal Links ────────────────────────────────
-// Served before the rate limiter and without redirects.
+// Must be registered BEFORE express.static so dotfile paths are not blocked.
 // Apple requires Content-Type: application/json and HTTPS with no redirects.
 const wellKnownDir = path.join(__dirname, '..', 'public', '.well-known');
 
@@ -84,6 +79,10 @@ app.get('/.well-known/assetlinks.json', (_req, res) => {
   res.setHeader('Content-Type', 'application/json');
   res.sendFile(path.join(wellKnownDir, 'assetlinks.json'));
 });
+
+// Serve remaining public assets (images, etc.)
+// dotfiles: 'allow' is required so that express.static doesn't 404 on .well-known paths.
+app.use(express.static(path.join(__dirname, '..', 'public'), { dotfiles: 'allow' }));
 
 
 // Telegram bot webhook — mounted before the rate limiter so Telegram
