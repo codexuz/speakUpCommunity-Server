@@ -349,7 +349,8 @@ router.post(
         sseManager.sendToUsers(otherMemberIds, 'new-speaking', {
           id: response.id.toString(),
           studentName: response.student.fullName,
-          question: response.question.qText.slice(0, 80),
+          question: response.question?.qText.slice(0, 80),
+
         });
 
         const teacherTokens = members
@@ -364,7 +365,8 @@ router.post(
           await sendPushToMultiple(
             teacherTokens,
             'New Speaking Submission',
-            `${response.student.fullName} submitted: "${response.question.qText.slice(0, 50)}..."`,
+            `${response.student.fullName} submitted: "${response.question?.qText.slice(0, 50)}..."`,
+
             { type: 'new_submission', responseId: response.id.toString() },
           );
         }

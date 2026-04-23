@@ -176,12 +176,9 @@ router.post(
         return;
       }
 
-      // Create a Response record for the audio
-      // Use a special "challenge" question approach — store with questionId=0 won't work,
-      // so create response linked to challenge context
+      // Create a Response record for the audio (no question linked for challenges)
       const response = await prisma.response.create({
         data: {
-          questionId: parseInt(req.body.questionId) || 1, // optional linked question
           studentId: auth.userId,
           remoteUrl,
         },
