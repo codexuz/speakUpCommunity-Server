@@ -78,6 +78,7 @@ enum LectureContentType {
     text
     audio
     video
+    mixed
 
     @@map("lecture_content_type")
 }
