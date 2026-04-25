@@ -172,6 +172,7 @@ router.get('/lessons/:lessonId', async (req: Request, res: Response) => {
             matchPairs: { orderBy: { order: 'asc' } },
             wordBankItems: { orderBy: { correctPosition: 'asc' } },
             conversationLines: { orderBy: { order: 'asc' } },
+            questions: { orderBy: { order: 'asc' } },
           },
         },
         unit: {
