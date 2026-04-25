@@ -96,8 +96,17 @@ enum ExerciseType {
   translateSentence
   tapWhatYouHear
   completeConversation
+  reading
+  listening
 
   @@map("exercise_type")
+}
+
+enum ExerciseQuestionType {
+  multipleChoice
+  fillInBlank
+
+  @@map("exercise_question_type")
 }
 
 model User {
@@ -685,6 +694,7 @@ model Exercise {
   targetText       String?      @map("target_text") // Target text for pronunciation / listen-repeat
   audioUrl         String?      @map("audio_url") // Reference audio clip
   imageUrl         String?      @map("image_url") // Illustration / context image
+  passage          String?      // Reading text passage
   hints            Json?        @db.JsonB // ["hint1", "hint2"] progressive hints
   explanation      String? // Shown after answering (why correct/wrong)
   difficulty       Int          @default(1) // 1=easy, 2=medium, 3=hard
@@ -695,6 +705,7 @@ model Exercise {
   matchPairs        ExerciseMatchPair[]
   wordBankItems     ExerciseWordBankItem[]
   conversationLines ExerciseConversationLine[]
+  questions         ExerciseQuestion[]
   attempts          ExerciseAttempt[]
 
   @@index([lessonId])
@@ -762,6 +773,23 @@ model ExerciseConversationLine {
 
   @@index([exerciseId])
   @@map("exercise_conversation_lines")
+}
+
+// Sub-questions for reading or listening exercises
+model ExerciseQuestion {
+  id            String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  exerciseId    String               @map("exercise_id") @db.Uuid
+  type          ExerciseQuestionType @default(multipleChoice)
+  order         Int                  @default(0)
+  questionText  String               @map("question_text")
+  correctAnswer String?              @map("correct_answer") // For fill-in-blank or short answer
+  options       Json?                @db.JsonB // Options: [{text: "A", isCorrect: true}]
+  explanation   String?
+
+  exercise      Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+
+  @@index([exerciseId])
+  @@map("exercise_questions")
 }
 
 // ─── Exercise Player ────────────────────────────────────────────

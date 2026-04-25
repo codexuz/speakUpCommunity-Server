@@ -103,8 +103,9 @@ Mixed lesson:     [Lectures] → [Exercises] → Complete
 | `correctAnswer` | `string?` | fillInBlank, speakTheAnswer, translateSentence | Plain-text correct answer for validation |
 | `sentenceTemplate` | `string?` | fillInBlank | e.g. `"I ___ to school yesterday"` — blank marked with `___` |
 | `targetText` | `string?` | listenRepeat, pronunciation | The exact text the user should say |
-| `audioUrl` | `string?` | listenRepeat, listenAndChoose, tapWhatYouHear, pronunciation | Reference audio clip |
+| `audioUrl` | `string?` | listenRepeat, listenAndChoose, tapWhatYouHear, pronunciation, listening | Reference audio clip |
 | `imageUrl` | `string?` | multipleChoice, fillInBlank | Context illustration |
+| `passage` | `string?` | reading | Reading text passage |
 | `hints` | `json?` | All | `["First hint", "Second hint"]` — progressive hints |
 | `explanation` | `string?` | All | Shown after answering (why correct/wrong) |
 | `difficulty` | `int` | All | `1` = easy, `2` = medium, `3` = hard |
@@ -118,6 +119,7 @@ Mixed lesson:     [Lectures] → [Exercises] → Complete
 | `ExerciseMatchPair` | `leftText`, `leftAudio?`, `rightText`, `rightAudio?`, `order` | matchPairs |
 | `ExerciseWordBankItem` | `text`, `correctPosition`, `isDistractor` | reorderWords, translateSentence |
 | `ExerciseConversationLine` | `speaker`, `text`, `audioUrl?`, `isUserTurn`, `acceptedAnswers?`, `order` | completeConversation, roleplay |
+| `ExerciseQuestion` | `type`, `questionText`, `correctAnswer?`, `options?`, `order`, `explanation?` | reading, listening |
 
 ### Player models
 
@@ -340,6 +342,56 @@ Mixed lesson:     [Lectures] → [Exercises] → Complete
 }
 ```
 
+### 3.13 `reading`
+> Read a passage and answer multiple sub-questions (multiple choice, gap-filling).
+
+```json
+{
+  "type": "reading",
+  "prompt": "Read the following passage and answer the questions below.",
+  "passage": "Marie Curie was a physicist and chemist who conducted pioneering research on radioactivity.",
+  "questions": [
+    {
+      "type": "multipleChoice",
+      "order": 0,
+      "questionText": "What field of research is Marie Curie famous for?",
+      "options": [
+        { "text": "Quantum Mechanics", "isCorrect": false },
+        { "text": "Radioactivity", "isCorrect": true }
+      ]
+    },
+    {
+      "type": "fillInBlank",
+      "order": 1,
+      "questionText": "She conducted pioneering research on _____.",
+      "correctAnswer": "radioactivity"
+    }
+  ]
+}
+```
+
+### 3.14 `listening`
+> Listen to an audio clip and answer multiple sub-questions.
+
+```json
+{
+  "type": "listening",
+  "prompt": "Listen to the airport announcement and answer the questions.",
+  "audioUrl": "https://cdn.example.com/audio/airport.mp3",
+  "questions": [
+    {
+      "type": "multipleChoice",
+      "order": 0,
+      "questionText": "Which gate is flight 5A departing from?",
+      "options": [
+        { "text": "Gate 12", "isCorrect": false },
+        { "text": "Gate 24", "isCorrect": true }
+      ]
+    }
+  ]
+}
+```
+
 ---
 
 ## 4. API Endpoints — Browse & Progress
@@ -536,7 +588,7 @@ Create an exercise with all child data in a single request.
 
 **Required fields:** `lessonId`, `type`, `prompt`
 **Optional fields:** everything else (see [Exercise fields](#exercise-fields) table)
-**Nested arrays:** `options`, `matchPairs`, `wordBankItems`, `conversationLines` — created together with the exercise.
+**Nested arrays:** `options`, `matchPairs`, `wordBankItems`, `conversationLines`, `questions` — created together with the exercise.
 
 #### `PUT /api/courses/admin/exercises/:id`
 

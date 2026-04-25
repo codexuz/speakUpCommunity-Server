@@ -775,9 +775,9 @@ router.post('/admin/exercises', requireRole('admin'), async (req: Request, res: 
   try {
     const {
       lessonId, type, order, prompt, promptAudio, correctAnswer,
-      sentenceTemplate, targetText, audioUrl, imageUrl, hints,
+      sentenceTemplate, targetText, audioUrl, imageUrl, passage, hints,
       explanation, difficulty, xpReward,
-      options, matchPairs, wordBankItems, conversationLines,
+      options, matchPairs, wordBankItems, conversationLines, questions,
     } = req.body;
     if (!lessonId || !type || !prompt) {
       res.status(400).json({ error: 'lessonId, type, prompt are required' });
@@ -795,6 +795,7 @@ router.post('/admin/exercises', requireRole('admin'), async (req: Request, res: 
         targetText: targetText || null,
         audioUrl: audioUrl || null,
         imageUrl: imageUrl || null,
+        passage: passage || null,
         hints: hints || null,
         explanation: explanation || null,
         difficulty: difficulty ?? 1,
@@ -811,12 +812,16 @@ router.post('/admin/exercises', requireRole('admin'), async (req: Request, res: 
         ...(conversationLines?.length && {
           conversationLines: { createMany: { data: conversationLines } },
         }),
+        ...(questions?.length && {
+          questions: { createMany: { data: questions } },
+        }),
       },
       include: {
         options: { orderBy: { order: 'asc' } },
         matchPairs: { orderBy: { order: 'asc' } },
         wordBankItems: { orderBy: { correctPosition: 'asc' } },
         conversationLines: { orderBy: { order: 'asc' } },
+        questions: { orderBy: { order: 'asc' } },
       },
     });
     res.status(201).json(exercise);
@@ -830,9 +835,9 @@ router.put('/admin/exercises/:id', requireRole('admin'), async (req: Request, re
   try {
     const {
       type, order, prompt, promptAudio, correctAnswer,
-      sentenceTemplate, targetText, audioUrl, imageUrl, hints,
+      sentenceTemplate, targetText, audioUrl, imageUrl, passage, hints,
       explanation, difficulty, xpReward,
-      options, matchPairs, wordBankItems, conversationLines,
+      options, matchPairs, wordBankItems, conversationLines, questions,
     } = req.body;
 
     // Replace child records if provided
@@ -870,6 +875,14 @@ router.put('/admin/exercises/:id', requireRole('admin'), async (req: Request, re
           });
         }
       }
+      if (questions !== undefined) {
+        await tx.exerciseQuestion.deleteMany({ where: { exerciseId } });
+        if (questions?.length) {
+          await tx.exerciseQuestion.createMany({
+            data: questions.map((q: any) => ({ ...q, exerciseId })),
+          });
+        }
+      }
     });
 
     const exercise = await prisma.exercise.update({
@@ -884,6 +897,7 @@ router.put('/admin/exercises/:id', requireRole('admin'), async (req: Request, re
         ...(targetText !== undefined && { targetText }),
         ...(audioUrl !== undefined && { audioUrl }),
         ...(imageUrl !== undefined && { imageUrl }),
+        ...(passage !== undefined && { passage }),
         ...(hints !== undefined && { hints }),
         ...(explanation !== undefined && { explanation }),
         ...(difficulty !== undefined && { difficulty }),
@@ -894,6 +908,7 @@ router.put('/admin/exercises/:id', requireRole('admin'), async (req: Request, re
         matchPairs: { orderBy: { order: 'asc' } },
         wordBankItems: { orderBy: { correctPosition: 'asc' } },
         conversationLines: { orderBy: { order: 'asc' } },
+        questions: { orderBy: { order: 'asc' } },
       },
     });
     res.json(exercise);
