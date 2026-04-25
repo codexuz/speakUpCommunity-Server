@@ -75,11 +75,13 @@ Mixed lesson:     [Lectures] → [Exercises] → Complete
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `contentType` | `LectureContentType` | `text`, `audio`, or `video` |
+| `contentType` | `LectureContentType` | `text`, `audio`, `video`, or `mixed` |
 | `title` | `string` | Lecture section title |
 | `order` | `int` | Display sequence within the lesson |
 | `textBody` | `string?` | Rich text / markdown content (for `text` type) |
-| `mediaUrl` | `string?` | Audio or video URL (for `audio`/`video` types) |
+| `mediaUrl` | `string?` | ⚠️ **Deprecated** — kept for backward compatibility. Use `audioUrl`/`videoUrl` instead |
+| `audioUrl` | `string?` | Dedicated audio URL |
+| `videoUrl` | `string?` | Dedicated video URL |
 | `thumbnailUrl` | `string?` | Preview image for audio/video player |
 | `durationSec` | `int?` | Duration in seconds for audio/video |
 
@@ -434,9 +436,12 @@ All admin endpoints require `admin` role.
 Create a lecture with optional file uploads (multipart/form-data).
 
 **Form fields:**
-- `lessonId` (required), `contentType` (required: `text`|`audio`|`video`), `title` (required)
-- `order`, `textBody`, `mediaUrl`, `thumbnailUrl`, `durationSec` (optional)
-- `media` — single file upload for audio/video content
+- `lessonId` (required), `contentType` (required: `text`|`audio`|`video`|`mixed`), `title` (required)
+- `order`, `textBody`, `audioUrl`, `videoUrl`, `thumbnailUrl`, `durationSec` (optional)
+- `mediaUrl` (optional, deprecated — kept for backward compatibility)
+- `audio` — single file upload for audio content
+- `video` — single file upload for video content
+- `media` — single file upload (backward compat, use `audio`/`video` instead)
 - `thumbnail` — single file upload for preview image
 - `attachments` — up to 10 downloadable files (PDF, docs, etc.)
 
@@ -460,10 +465,35 @@ lessonId=uuid
 contentType=video
 title=Pronunciation Guide
 durationSec=320
-media=@video.mp4
+video=@video.mp4
 thumbnail=@preview.jpg
 attachments=@worksheet.pdf
 attachments=@transcript.txt
+```
+
+**Audio-only example:**
+```
+POST /api/courses/admin/lectures
+Content-Type: multipart/form-data
+
+lessonId=uuid
+contentType=audio
+title=Listening Practice Episode 5
+durationSec=180
+audio=@episode5.mp3
+thumbnail=@cover.jpg
+```
+
+**Mixed lecture (audio + video URLs):**
+```json
+{
+  "lessonId": "uuid",
+  "contentType": "mixed",
+  "title": "Full Lesson: Greetings",
+  "audioUrl": "https://cdn.example.com/audio/greetings.mp3",
+  "videoUrl": "https://cdn.example.com/video/greetings.mp4",
+  "durationSec": 420
+}
 ```
 
 #### `PUT /api/courses/admin/lectures/:id`
@@ -532,7 +562,9 @@ Get a single lecture with attachments and user progress.
   "title": "Pronunciation Guide",
   "order": 0,
   "textBody": null,
-  "mediaUrl": "https://cdn.example.com/lectures/video.mp4",
+  "mediaUrl": null,
+  "audioUrl": null,
+  "videoUrl": "https://cdn.example.com/lectures/video.mp4",
   "thumbnailUrl": "https://cdn.example.com/lectures/thumb.jpg",
   "durationSec": 320,
   "attachments": [
@@ -729,7 +761,10 @@ interface Lecture {
   title: string;
   order: number;
   textBody: string | null;
+  /** @deprecated Use audioUrl/videoUrl instead. Kept for backward compatibility. */
   mediaUrl: string | null;
+  audioUrl: string | null;
+  videoUrl: string | null;
   thumbnailUrl: string | null;
   durationSec: number | null;
   createdAt: string;

@@ -437,12 +437,14 @@ router.post(
   requireRole('admin'),
   lectureMediaUpload.fields([
     { name: 'media', maxCount: 1 },
+    { name: 'audio', maxCount: 1 },
+    { name: 'video', maxCount: 1 },
     { name: 'thumbnail', maxCount: 1 },
     { name: 'attachments', maxCount: 10 },
   ]),
   async (req: Request, res: Response) => {
     try {
-      const { lessonId, contentType, title, order, textBody, mediaUrl, thumbnailUrl, durationSec } = req.body;
+      const { lessonId, contentType, title, order, textBody, mediaUrl, audioUrl, videoUrl, thumbnailUrl, durationSec } = req.body;
       if (!lessonId || !contentType || !title) {
         res.status(400).json({ error: 'lessonId, contentType, title are required' });
         return;
@@ -450,13 +452,31 @@ router.post(
 
       const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
 
-      // Upload media file if provided
+      // Upload media file if provided (backward compatibility)
       let resolvedMediaUrl = mediaUrl || null;
       if (files?.media?.[0]) {
         const f = files.media[0];
         const ext = f.originalname.split('.').pop() || 'bin';
         const fileName = `courses/lectures/${uuidv4()}.${ext}`;
         resolvedMediaUrl = await uploadFile(fileName, f.buffer, f.mimetype);
+      }
+
+      // Upload dedicated audio file if provided
+      let resolvedAudioUrl = audioUrl || null;
+      if (files?.audio?.[0]) {
+        const f = files.audio[0];
+        const ext = f.originalname.split('.').pop() || 'bin';
+        const fileName = `courses/lectures/audio/${uuidv4()}.${ext}`;
+        resolvedAudioUrl = await uploadFile(fileName, f.buffer, f.mimetype);
+      }
+
+      // Upload dedicated video file if provided
+      let resolvedVideoUrl = videoUrl || null;
+      if (files?.video?.[0]) {
+        const f = files.video[0];
+        const ext = f.originalname.split('.').pop() || 'bin';
+        const fileName = `courses/lectures/video/${uuidv4()}.${ext}`;
+        resolvedVideoUrl = await uploadFile(fileName, f.buffer, f.mimetype);
       }
 
       // Upload thumbnail if provided
@@ -494,6 +514,8 @@ router.post(
           order: order ? parseInt(order) : 0,
           textBody: textBody || null,
           mediaUrl: resolvedMediaUrl,
+          audioUrl: resolvedAudioUrl,
+          videoUrl: resolvedVideoUrl,
           thumbnailUrl: resolvedThumbnailUrl,
           durationSec: durationSec ? parseInt(durationSec) : null,
           ...(attachmentData.length && {
@@ -516,12 +538,14 @@ router.put(
   requireRole('admin'),
   lectureMediaUpload.fields([
     { name: 'media', maxCount: 1 },
+    { name: 'audio', maxCount: 1 },
+    { name: 'video', maxCount: 1 },
     { name: 'thumbnail', maxCount: 1 },
     { name: 'attachments', maxCount: 10 },
   ]),
   async (req: Request, res: Response) => {
     try {
-      const { contentType, title, order, textBody, mediaUrl, thumbnailUrl, durationSec } = req.body;
+      const { contentType, title, order, textBody, mediaUrl, audioUrl, videoUrl, thumbnailUrl, durationSec } = req.body;
       const lectureId = req.params.id as string;
       const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
 
@@ -533,6 +557,26 @@ router.put(
         resolvedMediaUrl = await uploadFile(fileName, f.buffer, f.mimetype);
       } else if (mediaUrl !== undefined) {
         resolvedMediaUrl = mediaUrl;
+      }
+
+      let resolvedAudioUrl: string | undefined;
+      if (files?.audio?.[0]) {
+        const f = files.audio[0];
+        const ext = f.originalname.split('.').pop() || 'bin';
+        const fileName = `courses/lectures/audio/${uuidv4()}.${ext}`;
+        resolvedAudioUrl = await uploadFile(fileName, f.buffer, f.mimetype);
+      } else if (audioUrl !== undefined) {
+        resolvedAudioUrl = audioUrl;
+      }
+
+      let resolvedVideoUrl: string | undefined;
+      if (files?.video?.[0]) {
+        const f = files.video[0];
+        const ext = f.originalname.split('.').pop() || 'bin';
+        const fileName = `courses/lectures/video/${uuidv4()}.${ext}`;
+        resolvedVideoUrl = await uploadFile(fileName, f.buffer, f.mimetype);
+      } else if (videoUrl !== undefined) {
+        resolvedVideoUrl = videoUrl;
       }
 
       let resolvedThumbnailUrl: string | undefined;
@@ -574,6 +618,8 @@ router.put(
           ...(order !== undefined && { order: typeof order === 'string' ? parseInt(order) : order }),
           ...(textBody !== undefined && { textBody }),
           ...(resolvedMediaUrl !== undefined && { mediaUrl: resolvedMediaUrl }),
+          ...(resolvedAudioUrl !== undefined && { audioUrl: resolvedAudioUrl }),
+          ...(resolvedVideoUrl !== undefined && { videoUrl: resolvedVideoUrl }),
           ...(resolvedThumbnailUrl !== undefined && { thumbnailUrl: resolvedThumbnailUrl }),
           ...(durationSec !== undefined && { durationSec: durationSec ? parseInt(durationSec) : null }),
         },

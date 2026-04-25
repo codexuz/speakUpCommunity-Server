@@ -1,964 +1,966 @@
 generator client {
-    provider = "prisma-client-js"
+  provider = "prisma-client-js"
 }
 
 datasource db {
-    provider  = "postgresql"
-    url       = env("DATABASE_URL")
-    directUrl = env("DIRECT_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 enum UserRole {
-    student
-    teacher
-    admin
+  student
+  teacher
+  admin
 
-    @@map("user_role")
+  @@map("user_role")
 }
 
 enum Visibility {
-    private
-    group
-    community
-    ai_only
+  private
+  group
+  community
+  ai_only
 
-    @@map("visibility")
+  @@map("visibility")
 }
 
 enum GroupRole {
-    owner
-    teacher
-    student
+  owner
+  teacher
+  student
 
-    @@map("group_role")
+  @@map("group_role")
 }
 
 enum RequestStatus {
-    pending
-    approved
-    rejected
+  pending
+  approved
+  rejected
 
-    @@map("request_status")
+  @@map("request_status")
 }
 
 enum MessageType {
-    text
-    image
-    video
-    file
-    system
+  text
+  image
+  video
+  file
+  system
 
-    @@map("message_type")
+  @@map("message_type")
 }
 
 enum ChallengeType {
-    daily
-    weekly
-    special
+  daily
+  weekly
+  special
 
-    @@map("challenge_type")
+  @@map("challenge_type")
 }
 
 enum ExamType {
-    cefr
-    ielts
+  cefr
+  ielts
 
-    @@map("exam_type")
+  @@map("exam_type")
 }
 
 enum LessonType {
-    practice
-    lecture
-    mixed
+  practice
+  lecture
+  mixed
 
-    @@map("lesson_type")
+  @@map("lesson_type")
 }
 
 enum LectureContentType {
-    text
-    audio
-    video
-    mixed
+  text
+  audio
+  video
+  mixed
 
-    @@map("lecture_content_type")
+  @@map("lecture_content_type")
 }
 
 enum ExerciseType {
-    listenRepeat
-    speakTheAnswer
-    fillInBlank
-    multipleChoice
-    listenAndChoose
-    roleplay
-    pronunciation
-    matchPairs
-    reorderWords
-    translateSentence
-    tapWhatYouHear
-    completeConversation
+  listenRepeat
+  speakTheAnswer
+  fillInBlank
+  multipleChoice
+  listenAndChoose
+  roleplay
+  pronunciation
+  matchPairs
+  reorderWords
+  translateSentence
+  tapWhatYouHear
+  completeConversation
 
-    @@map("exercise_type")
+  @@map("exercise_type")
 }
 
 model User {
-    id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-    username        String   @unique
-    phone           String?  @unique
-    fullName        String   @map("fullName")
-    password        String
-    role            UserRole @default(student)
-    verifiedTeacher Boolean  @default(false) @map("verified_teacher")
-    gender          String?
-    region          String?
-    avatarUrl       String?  @map("avatarUrl")
-    pushToken       String?  @map("push_token")
-    telegramChatId  String?  @unique @map("telegram_chat_id")
-    createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  username        String   @unique
+  phone           String?  @unique
+  fullName        String   @map("fullName")
+  password        String
+  role            UserRole @default(student)
+  verifiedTeacher Boolean  @default(false) @map("verified_teacher")
+  gender          String?
+  region          String?
+  avatarUrl       String?  @map("avatarUrl")
+  pushToken       String?  @map("push_token")
+  telegramChatId  String?  @unique @map("telegram_chat_id")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
 
-    responses             Response[]
-    testSessions          TestSession[]
-    groups                Group[]                  @relation("CreatorGroups")
-    memberships           GroupMember[]
-    reviews               Review[]
-    likes                 Like[]
-    comments              Comment[]
-    following             UserFollow[]             @relation("UserFollowing")
-    followers             UserFollow[]             @relation("UserFollowers")
-    joinRequests          GroupJoinRequest[]
-    teacherRequests       TeacherVerification[]    @relation("TeacherRequester")
-    reviewedVerifications TeacherVerification[]    @relation("VerificationReviewer")
-    groupMessages         GroupMessage[]
-    readCursors           GroupMessageReadCursor[]
-    progress              UserProgress?
-    achievements          UserAchievement[]
-    reputation            UserReputation?
-    challengeSubmissions  ChallengeSubmission[]
-    lessonProgress        UserLessonProgress[]
-    exerciseSessions      ExerciseSession[]
-    lectureProgress       UserLectureProgress[]
-    writingSessions       WritingSession[]
-    writingResponses      WritingResponse[]
-    writingReviews        WritingReview[]
+  responses             Response[]
+  testSessions          TestSession[]
+  groups                Group[]                  @relation("CreatorGroups")
+  memberships           GroupMember[]
+  reviews               Review[]
+  likes                 Like[]
+  comments              Comment[]
+  following             UserFollow[]             @relation("UserFollowing")
+  followers             UserFollow[]             @relation("UserFollowers")
+  joinRequests          GroupJoinRequest[]
+  teacherRequests       TeacherVerification[]    @relation("TeacherRequester")
+  reviewedVerifications TeacherVerification[]    @relation("VerificationReviewer")
+  groupMessages         GroupMessage[]
+  readCursors           GroupMessageReadCursor[]
+  progress              UserProgress?
+  achievements          UserAchievement[]
+  reputation            UserReputation?
+  challengeSubmissions  ChallengeSubmission[]
+  lessonProgress        UserLessonProgress[]
+  exerciseSessions      ExerciseSession[]
+  lectureProgress       UserLectureProgress[]
+  writingSessions       WritingSession[]
+  writingResponses      WritingResponse[]
+  writingReviews        WritingReview[]
 
-    @@map("users")
+  @@map("users")
 }
 
 model UserFollow {
-    id          BigInt   @id @default(autoincrement())
-    followerId  String   @map("follower_id") @db.Uuid
-    followingId String   @map("following_id") @db.Uuid
-    createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  id          BigInt   @id @default(autoincrement())
+  followerId  String   @map("follower_id") @db.Uuid
+  followingId String   @map("following_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
 
-    follower  User @relation("UserFollowing", fields: [followerId], references: [id], onDelete: Cascade)
-    following User @relation("UserFollowers", fields: [followingId], references: [id], onDelete: Cascade)
+  follower  User @relation("UserFollowing", fields: [followerId], references: [id], onDelete: Cascade)
+  following User @relation("UserFollowers", fields: [followingId], references: [id], onDelete: Cascade)
 
-    @@unique([followerId, followingId])
-    @@index([followerId])
-    @@index([followingId])
-    @@map("user_follows")
+  @@unique([followerId, followingId])
+  @@index([followerId])
+  @@index([followingId])
+  @@map("user_follows")
 }
 
 model Test {
-    id          Int      @id @default(autoincrement())
-    title       String
-    description String?
-    testType    ExamType @default(cefr) @map("test_type")
-    isPublished Boolean  @default(false) @map("is_published")
-    createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  id          Int      @id @default(autoincrement())
+  title       String
+  description String?
+  testType    ExamType @default(cefr) @map("test_type")
+  isPublished Boolean  @default(false) @map("is_published")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
 
-    questions Question[]
-    sessions  TestSession[]
+  questions Question[]
+  sessions  TestSession[]
 
-    @@index([isPublished])
-    @@map("tests")
+  @@index([isPublished])
+  @@map("tests")
 }
 
 model TestSession {
-    id            BigInt     @id @default(autoincrement())
-    testId        Int        @map("test_id")
-    userId        String     @map("user_id") @db.Uuid
-    visibility    Visibility @default(private)
-    groupId       String?    @map("group_id") @db.Uuid
-    examType      ExamType   @default(cefr) @map("exam_type")
-    isAnonymous   Boolean    @default(false) @map("is_anonymous")
-    likes         Int        @default(0)
-    commentsCount Int        @default(0) @map("comments_count")
-    scoreAvg      Float?     @map("score_avg")
-    createdAt     DateTime   @default(now()) @map("created_at") @db.Timestamptz
+  id            BigInt     @id @default(autoincrement())
+  testId        Int        @map("test_id")
+  userId        String     @map("user_id") @db.Uuid
+  visibility    Visibility @default(private)
+  groupId       String?    @map("group_id") @db.Uuid
+  examType      ExamType   @default(cefr) @map("exam_type")
+  isAnonymous   Boolean    @default(false) @map("is_anonymous")
+  likes         Int        @default(0)
+  commentsCount Int        @default(0) @map("comments_count")
+  scoreAvg      Float?     @map("score_avg")
+  createdAt     DateTime   @default(now()) @map("created_at") @db.Timestamptz
 
-    test      Test       @relation(fields: [testId], references: [id], onDelete: Cascade)
-    user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-    group     Group?     @relation(fields: [groupId], references: [id], onDelete: SetNull)
-    responses Response[]
-    reviews   Review[]
-    likedBy   Like[]
-    comments  Comment[]
+  test      Test       @relation(fields: [testId], references: [id], onDelete: Cascade)
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  group     Group?     @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  responses Response[]
+  reviews   Review[]
+  likedBy   Like[]
+  comments  Comment[]
 
-    @@index([userId])
-    @@index([testId])
-    @@index([groupId])
-    @@index([visibility])
-    @@index([createdAt])
-    @@map("test_sessions")
+  @@index([userId])
+  @@index([testId])
+  @@index([groupId])
+  @@index([visibility])
+  @@index([createdAt])
+  @@map("test_sessions")
 }
 
 model Question {
-    id            Int      @id @default(autoincrement())
-    testId        Int      @map("test_id")
-    qText         String   @map("q_text")
-    part          String
-    image         String?
-    audioUrl      String?  @map("audio_url")
-    speakingTimer Int      @default(30) @map("speaking_timer")
-    prepTimer     Int      @default(5) @map("prep_timer")
-    createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
+  id            Int      @id @default(autoincrement())
+  testId        Int      @map("test_id")
+  qText         String   @map("q_text")
+  part          String
+  image         String?
+  audioUrl      String?  @map("audio_url")
+  speakingTimer Int      @default(30) @map("speaking_timer")
+  prepTimer     Int      @default(5) @map("prep_timer")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
 
-    test          Test           @relation(fields: [testId], references: [id], onDelete: Cascade)
-    responses     Response[]
-    sampleAnswers SampleAnswer[]
+  test          Test           @relation(fields: [testId], references: [id], onDelete: Cascade)
+  responses     Response[]
+  sampleAnswers SampleAnswer[]
 
-    @@map("questions")
+  @@map("questions")
 }
 
 model SampleAnswer {
-    id         Int      @id @default(autoincrement())
-    questionId Int      @map("question_id")
-    level      String // e.g. A2, B1, B2, C1
-    version    Int      @default(1)
-    answerText String   @map("answer_text")
-    audioUrl   String?  @map("audio_url")
-    createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+  id         Int      @id @default(autoincrement())
+  questionId Int      @map("question_id")
+  level      String // e.g. A2, B1, B2, C1
+  version    Int      @default(1)
+  answerText String   @map("answer_text")
+  audioUrl   String?  @map("audio_url")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
 
-    question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
 
-    @@unique([questionId, level, version])
-    @@index([questionId])
-    @@index([level])
-    @@map("sample_answers")
+  @@unique([questionId, level, version])
+  @@index([questionId])
+  @@index([level])
+  @@map("sample_answers")
 }
 
 model Response {
-    id              BigInt   @id @default(autoincrement())
-    questionId      Int?     @map("question_id")
-    studentId       String   @map("student_id") @db.Uuid
-    sessionId       BigInt?  @map("session_id")
-    localUri        String?  @map("local_uri")
-    remoteUrl       String?  @map("remote_url")
-    teacherScore    Int?     @map("teacher_score")
-    teacherFeedback String?  @map("teacher_feedback")
-    audioProcessed  Boolean  @default(false) @map("audio_processed")
-    createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
+  id              BigInt   @id @default(autoincrement())
+  questionId      Int?     @map("question_id")
+  studentId       String   @map("student_id") @db.Uuid
+  sessionId       BigInt?  @map("session_id")
+  localUri        String?  @map("local_uri")
+  remoteUrl       String?  @map("remote_url")
+  teacherScore    Int?     @map("teacher_score")
+  teacherFeedback String?  @map("teacher_feedback")
+  audioProcessed  Boolean  @default(false) @map("audio_processed")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
 
-    question   Question?    @relation(fields: [questionId], references: [id], onDelete: Cascade)
-    student    User         @relation(fields: [studentId], references: [id], onDelete: Cascade)
-    session    TestSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
-    aiFeedback AIFeedback?
+  question   Question?    @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  student    User         @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  session    TestSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  aiFeedback AIFeedback?
 
-    @@index([studentId])
-    @@index([sessionId])
-    @@index([createdAt])
-    @@map("responses")
+  @@index([studentId])
+  @@index([sessionId])
+  @@index([createdAt])
+  @@map("responses")
 }
 
 model Review {
-    id         BigInt   @id @default(autoincrement())
-    sessionId  BigInt   @map("session_id")
-    reviewerId String   @map("reviewer_id") @db.Uuid
-    score      Float // CEFR: 0-75, IELTS: 0-9 (0.5 steps)
-    feedback   String?
-    createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+  id         BigInt   @id @default(autoincrement())
+  sessionId  BigInt   @map("session_id")
+  reviewerId String   @map("reviewer_id") @db.Uuid
+  score      Float // CEFR: 0-75, IELTS: 0-9 (0.5 steps)
+  feedback   String?
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
 
-    session  TestSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-    reviewer User        @relation(fields: [reviewerId], references: [id], onDelete: Cascade)
+  session  TestSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  reviewer User        @relation(fields: [reviewerId], references: [id], onDelete: Cascade)
 
-    @@unique([sessionId, reviewerId])
-    @@index([reviewerId])
-    @@map("reviews")
+  @@unique([sessionId, reviewerId])
+  @@index([reviewerId])
+  @@map("reviews")
 }
 
 model Like {
-    id        BigInt   @id @default(autoincrement())
-    sessionId BigInt   @map("session_id")
-    userId    String   @map("user_id") @db.Uuid
-    createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  id        BigInt   @id @default(autoincrement())
+  sessionId BigInt   @map("session_id")
+  userId    String   @map("user_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
 
-    session TestSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-    user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  session TestSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-    @@unique([sessionId, userId])
-    @@map("likes")
+  @@unique([sessionId, userId])
+  @@map("likes")
 }
 
 model Comment {
-    id        BigInt   @id @default(autoincrement())
-    sessionId BigInt   @map("session_id")
-    userId    String   @map("user_id") @db.Uuid
-    text      String
-    createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  id        BigInt   @id @default(autoincrement())
+  sessionId BigInt   @map("session_id")
+  userId    String   @map("user_id") @db.Uuid
+  text      String
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
 
-    session TestSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-    user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  session TestSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-    @@index([sessionId])
-    @@map("comments")
+  @@index([sessionId])
+  @@map("comments")
 }
 
 model Group {
-    id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-    name           String
-    description    String?
-    avatarUrl      String?  @map("avatar_url")
-    createdById    String   @map("teacher_id") @db.Uuid
-    referralCode   String   @unique @map("referral_code")
-    isGlobal       Boolean  @default(false) @map("is_global")
-    isPracticeRoom Boolean  @default(false) @map("is_practice_room")
-    maxLevel       String?  @map("max_level")
-    createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name           String
+  description    String?
+  avatarUrl      String?  @map("avatar_url")
+  createdById    String   @map("teacher_id") @db.Uuid
+  referralCode   String   @unique @map("referral_code")
+  isGlobal       Boolean  @default(false) @map("is_global")
+  isPracticeRoom Boolean  @default(false) @map("is_practice_room")
+  maxLevel       String?  @map("max_level")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
 
-    creator         User                     @relation("CreatorGroups", fields: [createdById], references: [id], onDelete: Cascade)
-    members         GroupMember[]
-    sessions        TestSession[]
-    joinRequests    GroupJoinRequest[]
-    messages        GroupMessage[]
-    readCursors     GroupMessageReadCursor[]
-    writingSessions WritingSession[]
+  creator         User                     @relation("CreatorGroups", fields: [createdById], references: [id], onDelete: Cascade)
+  members         GroupMember[]
+  sessions        TestSession[]
+  joinRequests    GroupJoinRequest[]
+  messages        GroupMessage[]
+  readCursors     GroupMessageReadCursor[]
+  writingSessions WritingSession[]
 
-    @@map("groups")
+  @@map("groups")
 }
 
 model GroupMember {
-    id       BigInt    @id @default(autoincrement())
-    groupId  String    @map("group_id") @db.Uuid
-    userId   String    @map("user_id") @db.Uuid
-    role     GroupRole @default(student)
-    joinedAt DateTime  @default(now()) @map("joined_at") @db.Timestamptz
+  id       BigInt    @id @default(autoincrement())
+  groupId  String    @map("group_id") @db.Uuid
+  userId   String    @map("user_id") @db.Uuid
+  role     GroupRole @default(student)
+  joinedAt DateTime  @default(now()) @map("joined_at") @db.Timestamptz
 
-    group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
-    user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-    @@unique([groupId, userId])
-    @@index([userId])
-    @@index([role])
-    @@map("group_members")
+  @@unique([groupId, userId])
+  @@index([userId])
+  @@index([role])
+  @@map("group_members")
 }
 
 model GroupJoinRequest {
-    id        BigInt        @id @default(autoincrement())
-    groupId   String        @map("group_id") @db.Uuid
-    userId    String        @map("user_id") @db.Uuid
-    message   String?
-    status    RequestStatus @default(pending)
-    createdAt DateTime      @default(now()) @map("created_at") @db.Timestamptz
-    updatedAt DateTime      @updatedAt @map("updated_at") @db.Timestamptz
+  id        BigInt        @id @default(autoincrement())
+  groupId   String        @map("group_id") @db.Uuid
+  userId    String        @map("user_id") @db.Uuid
+  message   String?
+  status    RequestStatus @default(pending)
+  createdAt DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime      @updatedAt @map("updated_at") @db.Timestamptz
 
-    group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
-    user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-    @@unique([groupId, userId])
-    @@index([status])
-    @@map("group_join_requests")
+  @@unique([groupId, userId])
+  @@index([status])
+  @@map("group_join_requests")
 }
 
 model TeacherVerification {
-    id         BigInt        @id @default(autoincrement())
-    userId     String        @map("user_id") @db.Uuid
-    reason     String?
-    status     RequestStatus @default(pending)
-    reviewedBy String?       @map("reviewed_by") @db.Uuid
-    reviewNote String?       @map("review_note")
-    createdAt  DateTime      @default(now()) @map("created_at") @db.Timestamptz
-    updatedAt  DateTime      @updatedAt @map("updated_at") @db.Timestamptz
+  id         BigInt        @id @default(autoincrement())
+  userId     String        @map("user_id") @db.Uuid
+  reason     String?
+  status     RequestStatus @default(pending)
+  reviewedBy String?       @map("reviewed_by") @db.Uuid
+  reviewNote String?       @map("review_note")
+  createdAt  DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt  DateTime      @updatedAt @map("updated_at") @db.Timestamptz
 
-    user     User  @relation("TeacherRequester", fields: [userId], references: [id], onDelete: Cascade)
-    reviewer User? @relation("VerificationReviewer", fields: [reviewedBy], references: [id], onDelete: SetNull)
+  user     User  @relation("TeacherRequester", fields: [userId], references: [id], onDelete: Cascade)
+  reviewer User? @relation("VerificationReviewer", fields: [reviewedBy], references: [id], onDelete: SetNull)
 
-    @@index([userId])
-    @@index([status])
-    @@map("teacher_verifications")
+  @@index([userId])
+  @@index([status])
+  @@map("teacher_verifications")
 }
 
 model GroupMessage {
-    id        BigInt      @id @default(autoincrement())
-    groupId   String      @map("group_id") @db.Uuid
-    senderId  String      @map("sender_id") @db.Uuid
-    type      MessageType @default(text)
-    text      String?
-    entities  Json?       @db.JsonB
-    replyToId BigInt?     @map("reply_to_id")
-    isEdited  Boolean     @default(false) @map("is_edited")
-    isDeleted Boolean     @default(false) @map("is_deleted")
-    createdAt DateTime    @default(now()) @map("created_at") @db.Timestamptz
-    updatedAt DateTime    @updatedAt @map("updated_at") @db.Timestamptz
+  id        BigInt      @id @default(autoincrement())
+  groupId   String      @map("group_id") @db.Uuid
+  senderId  String      @map("sender_id") @db.Uuid
+  type      MessageType @default(text)
+  text      String?
+  entities  Json?       @db.JsonB
+  replyToId BigInt?     @map("reply_to_id")
+  isEdited  Boolean     @default(false) @map("is_edited")
+  isDeleted Boolean     @default(false) @map("is_deleted")
+  createdAt DateTime    @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime    @updatedAt @map("updated_at") @db.Timestamptz
 
-    group       Group                    @relation(fields: [groupId], references: [id], onDelete: Cascade)
-    sender      User                     @relation(fields: [senderId], references: [id], onDelete: Cascade)
-    replyTo     GroupMessage?            @relation("MessageReplies", fields: [replyToId], references: [id], onDelete: SetNull)
-    replies     GroupMessage[]           @relation("MessageReplies")
-    attachments GroupMessageAttachment[]
+  group       Group                    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  sender      User                     @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  replyTo     GroupMessage?            @relation("MessageReplies", fields: [replyToId], references: [id], onDelete: SetNull)
+  replies     GroupMessage[]           @relation("MessageReplies")
+  attachments GroupMessageAttachment[]
 
-    @@index([groupId, createdAt])
-    @@index([senderId])
-    @@map("group_messages")
+  @@index([groupId, createdAt])
+  @@index([senderId])
+  @@map("group_messages")
 }
 
 model GroupMessageReadCursor {
-    id            BigInt   @id @default(autoincrement())
-    groupId       String   @map("group_id") @db.Uuid
-    userId        String   @map("user_id") @db.Uuid
-    lastReadMsgId BigInt   @map("last_read_msg_id")
-    updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz
+  id            BigInt   @id @default(autoincrement())
+  groupId       String   @map("group_id") @db.Uuid
+  userId        String   @map("user_id") @db.Uuid
+  lastReadMsgId BigInt   @map("last_read_msg_id")
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
-    group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
-    user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-    @@unique([groupId, userId])
-    @@index([userId])
-    @@map("group_message_read_cursors")
+  @@unique([groupId, userId])
+  @@index([userId])
+  @@map("group_message_read_cursors")
 }
 
 model GroupMessageAttachment {
-    id        BigInt   @id @default(autoincrement())
-    messageId BigInt   @map("message_id")
-    url       String
-    fileName  String   @map("file_name")
-    fileSize  Int      @map("file_size")
-    mimeType  String   @map("mime_type")
-    createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  id        BigInt   @id @default(autoincrement())
+  messageId BigInt   @map("message_id")
+  url       String
+  fileName  String   @map("file_name")
+  fileSize  Int      @map("file_size")
+  mimeType  String   @map("mime_type")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
 
-    message GroupMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  message GroupMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
 
-    @@index([messageId])
-    @@map("group_message_attachments")
+  @@index([messageId])
+  @@map("group_message_attachments")
 }
 
 model Ad {
-    id        Int      @id @default(autoincrement())
-    title     String
-    adText    String?  @map("ad_text")
-    imageUrl  String   @map("image_url")
-    linkUrl   String?  @map("link_url")
-    isActive  Boolean  @default(true) @map("is_active")
-    createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
-    updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+  id        Int      @id @default(autoincrement())
+  title     String
+  adText    String?  @map("ad_text")
+  imageUrl  String   @map("image_url")
+  linkUrl   String?  @map("link_url")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
-    @@index([isActive])
-    @@map("ads")
+  @@index([isActive])
+  @@map("ads")
 }
 
 // ─── Phase 3: AI Feedback ───────────────────────────────────────
 
 model AIFeedback {
-    id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-    responseId       BigInt   @unique @map("response_id")
-    transcript       String
-    grammarScore     Float    @map("grammar_score")
-    fluencyWPM       Float    @map("fluency_wpm")
-    fluencyScore     Float    @map("fluency_score")
-    vocabDiversity   Float    @map("vocab_diversity")
-    pronScore        Float    @map("pron_score")
-    overallScore     Float    @map("overall_score")
-    grammarIssues    Json     @default("[]") @map("grammar_issues") @db.JsonB
-    vocabSuggestions Json     @default("[]") @map("vocab_suggestions") @db.JsonB
-    pronIssues       Json     @default("[]") @map("pron_issues") @db.JsonB
-    naturalness      String?
-    fillerWords      Json     @default("{}") @map("filler_words") @db.JsonB
-    pauseCount       Int      @default(0) @map("pause_count")
-    aiSummary        String?  @map("ai_summary")
-    createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  responseId       BigInt   @unique @map("response_id")
+  transcript       String
+  grammarScore     Float    @map("grammar_score")
+  fluencyWPM       Float    @map("fluency_wpm")
+  fluencyScore     Float    @map("fluency_score")
+  vocabDiversity   Float    @map("vocab_diversity")
+  pronScore        Float    @map("pron_score")
+  overallScore     Float    @map("overall_score")
+  grammarIssues    Json     @default("[]") @map("grammar_issues") @db.JsonB
+  vocabSuggestions Json     @default("[]") @map("vocab_suggestions") @db.JsonB
+  pronIssues       Json     @default("[]") @map("pron_issues") @db.JsonB
+  naturalness      String?
+  fillerWords      Json     @default("{}") @map("filler_words") @db.JsonB
+  pauseCount       Int      @default(0) @map("pause_count")
+  aiSummary        String?  @map("ai_summary")
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz
 
-    response Response @relation(fields: [responseId], references: [id], onDelete: Cascade)
+  response Response @relation(fields: [responseId], references: [id], onDelete: Cascade)
 
-    @@index([responseId])
-    @@map("ai_feedbacks")
+  @@index([responseId])
+  @@map("ai_feedbacks")
 }
 
 // ─── Phase 1: Gamification ──────────────────────────────────────
 
 model UserProgress {
-    id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-    userId            String    @unique @map("user_id") @db.Uuid
-    xp                Int       @default(0)
-    level             Int       @default(1)
-    coins             Int       @default(0)
-    currentStreak     Int       @default(0) @map("current_streak")
-    longestStreak     Int       @default(0) @map("longest_streak")
-    lastActiveDate    DateTime? @map("last_active_date") @db.Date
-    streakFreezes     Int       @default(0) @map("streak_freezes")
-    totalRecordings   Int       @default(0) @map("total_recordings")
-    totalWritings     Int       @default(0) @map("total_writings")
-    totalReviewsGiven Int       @default(0) @map("total_reviews_given")
-    fluencyWPMAvg     Float?    @map("fluency_wpm_avg")
-    vocabDiversityAvg Float?    @map("vocab_diversity_avg")
-    pronScoreAvg      Float?    @map("pron_score_avg")
-    weeklyXP          Int       @default(0) @map("weekly_xp")
-    weeklyXPResetAt   DateTime  @default(now()) @map("weekly_xp_reset_at") @db.Timestamptz
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId            String    @unique @map("user_id") @db.Uuid
+  xp                Int       @default(0)
+  level             Int       @default(1)
+  coins             Int       @default(0)
+  currentStreak     Int       @default(0) @map("current_streak")
+  longestStreak     Int       @default(0) @map("longest_streak")
+  lastActiveDate    DateTime? @map("last_active_date") @db.Date
+  streakFreezes     Int       @default(0) @map("streak_freezes")
+  totalRecordings   Int       @default(0) @map("total_recordings")
+  totalWritings     Int       @default(0) @map("total_writings")
+  totalReviewsGiven Int       @default(0) @map("total_reviews_given")
+  fluencyWPMAvg     Float?    @map("fluency_wpm_avg")
+  vocabDiversityAvg Float?    @map("vocab_diversity_avg")
+  pronScoreAvg      Float?    @map("pron_score_avg")
+  weeklyXP          Int       @default(0) @map("weekly_xp")
+  weeklyXPResetAt   DateTime  @default(now()) @map("weekly_xp_reset_at") @db.Timestamptz
 
-    user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-    @@index([xp])
-    @@index([weeklyXP])
-    @@index([currentStreak])
-    @@map("user_progress")
+  @@index([xp])
+  @@index([weeklyXP])
+  @@index([currentStreak])
+  @@map("user_progress")
 }
 
 model Achievement {
-    id          String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-    key         String  @unique
-    title       String
-    description String
-    iconUrl     String? @map("icon_url")
-    xpReward    Int     @default(0) @map("xp_reward")
-    coinReward  Int     @default(0) @map("coin_reward")
-    category    String // speaking, social, streak, mastery
+  id          String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  key         String  @unique
+  title       String
+  description String
+  iconUrl     String? @map("icon_url")
+  xpReward    Int     @default(0) @map("xp_reward")
+  coinReward  Int     @default(0) @map("coin_reward")
+  category    String // speaking, social, streak, mastery
 
-    userAchievements UserAchievement[]
+  userAchievements UserAchievement[]
 
-    @@map("achievements")
+  @@map("achievements")
 }
 
 model UserAchievement {
-    id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-    userId        String   @map("user_id") @db.Uuid
-    achievementId String   @map("achievement_id") @db.Uuid
-    unlockedAt    DateTime @default(now()) @map("unlocked_at") @db.Timestamptz
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId        String   @map("user_id") @db.Uuid
+  achievementId String   @map("achievement_id") @db.Uuid
+  unlockedAt    DateTime @default(now()) @map("unlocked_at") @db.Timestamptz
 
-    user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-    achievement Achievement @relation(fields: [achievementId], references: [id], onDelete: Cascade)
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  achievement Achievement @relation(fields: [achievementId], references: [id], onDelete: Cascade)
 
-    @@unique([userId, achievementId])
-    @@index([userId])
-    @@map("user_achievements")
+  @@unique([userId, achievementId])
+  @@index([userId])
+  @@map("user_achievements")
 }
 
 // ─── Phase 2: Challenges ────────────────────────────────────────
 
 model Challenge {
-    id          String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-    title       String
-    description String?
-    type        ChallengeType @default(daily)
-    difficulty  String        @default("beginner") // beginner, intermediate, advanced
-    promptText  String        @map("prompt_text")
-    promptImage String?       @map("prompt_image")
-    startsAt    DateTime      @map("starts_at") @db.Timestamptz
-    endsAt      DateTime      @map("ends_at") @db.Timestamptz
-    xpReward    Int           @default(50) @map("xp_reward")
-    coinReward  Int           @default(5) @map("coin_reward")
-    isActive    Boolean       @default(true) @map("is_active")
-    createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  id          String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title       String
+  description String?
+  type        ChallengeType @default(daily)
+  difficulty  String        @default("beginner") // beginner, intermediate, advanced
+  promptText  String        @map("prompt_text")
+  promptImage String?       @map("prompt_image")
+  startsAt    DateTime      @map("starts_at") @db.Timestamptz
+  endsAt      DateTime      @map("ends_at") @db.Timestamptz
+  xpReward    Int           @default(50) @map("xp_reward")
+  coinReward  Int           @default(5) @map("coin_reward")
+  isActive    Boolean       @default(true) @map("is_active")
+  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz
 
-    submissions ChallengeSubmission[]
+  submissions ChallengeSubmission[]
 
-    @@index([type, isActive])
-    @@index([startsAt, endsAt])
-    @@map("challenges")
+  @@index([type, isActive])
+  @@index([startsAt, endsAt])
+  @@map("challenges")
 }
 
 model ChallengeSubmission {
-    id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-    challengeId String   @map("challenge_id") @db.Uuid
-    userId      String   @map("user_id") @db.Uuid
-    responseId  BigInt   @map("response_id")
-    submittedAt DateTime @default(now()) @map("submitted_at") @db.Timestamptz
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  challengeId String   @map("challenge_id") @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  responseId  BigInt   @map("response_id")
+  submittedAt DateTime @default(now()) @map("submitted_at") @db.Timestamptz
 
-    challenge Challenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
-    user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  challenge Challenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-    @@unique([challengeId, userId])
-    @@index([userId])
-    @@map("challenge_submissions")
+  @@unique([challengeId, userId])
+  @@index([userId])
+  @@map("challenge_submissions")
 }
 
 // ─── Phase 5: Courses & Exercises ───────────────────────────────
 
 model Course {
-    id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-    title       String
-    description String
-    level       String // A2, B1, B2, C1
-    imageUrl    String?  @map("image_url")
-    isPublished Boolean  @default(false) @map("is_published")
-    order       Int      @default(0)
-    createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title       String
+  description String
+  level       String // A2, B1, B2, C1
+  imageUrl    String?  @map("image_url")
+  isPublished Boolean  @default(false) @map("is_published")
+  order       Int      @default(0)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
 
-    units CourseUnit[]
+  units CourseUnit[]
 
-    @@index([isPublished])
-    @@map("courses")
+  @@index([isPublished])
+  @@map("courses")
 }
 
 model CourseUnit {
-    id       String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-    courseId String @map("course_id") @db.Uuid
-    title    String
-    order    Int
+  id       String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  courseId String @map("course_id") @db.Uuid
+  title    String
+  order    Int
 
-    course  Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
-    lessons Lesson[]
+  course  Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  lessons Lesson[]
 
-    @@index([courseId])
-    @@map("course_units")
+  @@index([courseId])
+  @@map("course_units")
 }
 
 model Lesson {
-    id       String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-    unitId   String     @map("unit_id") @db.Uuid
-    title    String
-    type     LessonType @default(practice)
-    order    Int
-    xpReward Int        @default(10) @map("xp_reward")
+  id       String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  unitId   String     @map("unit_id") @db.Uuid
+  title    String
+  type     LessonType @default(practice)
+  order    Int
+  xpReward Int        @default(10) @map("xp_reward")
 
-    unit             CourseUnit           @relation(fields: [unitId], references: [id], onDelete: Cascade)
-    exercises        Exercise[]
-    lectures         Lecture[]
-    progress         UserLessonProgress[]
-    exerciseSessions ExerciseSession[]
+  unit             CourseUnit           @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  exercises        Exercise[]
+  lectures         Lecture[]
+  progress         UserLessonProgress[]
+  exerciseSessions ExerciseSession[]
 
-    @@index([unitId])
-    @@map("lessons")
+  @@index([unitId])
+  @@map("lessons")
 }
 
 model Lecture {
-    id           String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-    lessonId     String             @map("lesson_id") @db.Uuid
-    contentType  LectureContentType @map("content_type")
-    title        String
-    order        Int                @default(0)
-    textBody     String?            @map("text_body") // Rich text / markdown content
-    mediaUrl     String?            @map("media_url") // Audio or video URL
-    thumbnailUrl String?            @map("thumbnail_url") // Preview image for video/audio
-    durationSec  Int?               @map("duration_sec") // Duration for audio/video in seconds
-    createdAt    DateTime           @default(now()) @map("created_at") @db.Timestamptz
-    updatedAt    DateTime           @updatedAt @map("updated_at") @db.Timestamptz
+  id           String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  lessonId     String             @map("lesson_id") @db.Uuid
+  contentType  LectureContentType @map("content_type")
+  title        String
+  order        Int                @default(0)
+  textBody     String?            @map("text_body") // Rich text / markdown content
+  mediaUrl     String?            @map("media_url") // Audio or video URL (kept for backward compatibility)
+  audioUrl     String?            @map("audio_url") // Dedicated audio URL
+  videoUrl     String?            @map("video_url") // Dedicated video URL
+  thumbnailUrl String?            @map("thumbnail_url") // Preview image for video/audio
+  durationSec  Int?               @map("duration_sec") // Duration for audio/video in seconds
+  createdAt    DateTime           @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime           @updatedAt @map("updated_at") @db.Timestamptz
 
-    lesson      Lesson                @relation(fields: [lessonId], references: [id], onDelete: Cascade)
-    attachments LectureAttachment[]
-    progress    UserLectureProgress[]
+  lesson      Lesson                @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  attachments LectureAttachment[]
+  progress    UserLectureProgress[]
 
-    @@index([lessonId])
-    @@map("lectures")
+  @@index([lessonId])
+  @@map("lectures")
 }
 
 model LectureAttachment {
-    id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-    lectureId String   @map("lecture_id") @db.Uuid
-    url       String
-    fileName  String   @map("file_name")
-    fileSize  Int      @map("file_size")
-    mimeType  String   @map("mime_type")
-    order     Int      @default(0)
-    createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  lectureId String   @map("lecture_id") @db.Uuid
+  url       String
+  fileName  String   @map("file_name")
+  fileSize  Int      @map("file_size")
+  mimeType  String   @map("mime_type")
+  order     Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
 
-    lecture Lecture @relation(fields: [lectureId], references: [id], onDelete: Cascade)
+  lecture Lecture @relation(fields: [lectureId], references: [id], onDelete: Cascade)
 
-    @@index([lectureId])
-    @@map("lecture_attachments")
+  @@index([lectureId])
+  @@map("lecture_attachments")
 }
 
 model UserLectureProgress {
-    id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-    userId      String    @map("user_id") @db.Uuid
-    lectureId   String    @map("lecture_id") @db.Uuid
-    completed   Boolean   @default(false)
-    progressPct Int       @default(0) @map("progress_pct") // 0-100 playback/read progress
-    completedAt DateTime? @map("completed_at") @db.Timestamptz
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId      String    @map("user_id") @db.Uuid
+  lectureId   String    @map("lecture_id") @db.Uuid
+  completed   Boolean   @default(false)
+  progressPct Int       @default(0) @map("progress_pct") // 0-100 playback/read progress
+  completedAt DateTime? @map("completed_at") @db.Timestamptz
 
-    user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-    lecture Lecture @relation(fields: [lectureId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lecture Lecture @relation(fields: [lectureId], references: [id], onDelete: Cascade)
 
-    @@unique([userId, lectureId])
-    @@index([userId])
-    @@map("user_lecture_progress")
+  @@unique([userId, lectureId])
+  @@index([userId])
+  @@map("user_lecture_progress")
 }
 
 model Exercise {
-    id               String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-    lessonId         String       @map("lesson_id") @db.Uuid
-    type             ExerciseType
-    order            Int
-    prompt           String // Instruction text shown to the user
-    promptAudio      String?      @map("prompt_audio") // Audio for the prompt itself
-    correctAnswer    String?      @map("correct_answer") // Simple text answer
-    sentenceTemplate String?      @map("sentence_template") // "I ___ to school yesterday" for fill-in-blank
-    targetText       String?      @map("target_text") // Target text for pronunciation / listen-repeat
-    audioUrl         String?      @map("audio_url") // Reference audio clip
-    imageUrl         String?      @map("image_url") // Illustration / context image
-    hints            Json?        @db.JsonB // ["hint1", "hint2"] progressive hints
-    explanation      String? // Shown after answering (why correct/wrong)
-    difficulty       Int          @default(1) // 1=easy, 2=medium, 3=hard
-    xpReward         Int          @default(10) @map("xp_reward")
+  id               String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  lessonId         String       @map("lesson_id") @db.Uuid
+  type             ExerciseType
+  order            Int
+  prompt           String // Instruction text shown to the user
+  promptAudio      String?      @map("prompt_audio") // Audio for the prompt itself
+  correctAnswer    String?      @map("correct_answer") // Simple text answer
+  sentenceTemplate String?      @map("sentence_template") // "I ___ to school yesterday" for fill-in-blank
+  targetText       String?      @map("target_text") // Target text for pronunciation / listen-repeat
+  audioUrl         String?      @map("audio_url") // Reference audio clip
+  imageUrl         String?      @map("image_url") // Illustration / context image
+  hints            Json?        @db.JsonB // ["hint1", "hint2"] progressive hints
+  explanation      String? // Shown after answering (why correct/wrong)
+  difficulty       Int          @default(1) // 1=easy, 2=medium, 3=hard
+  xpReward         Int          @default(10) @map("xp_reward")
 
-    lesson            Lesson                     @relation(fields: [lessonId], references: [id], onDelete: Cascade)
-    options           ExerciseOption[]
-    matchPairs        ExerciseMatchPair[]
-    wordBankItems     ExerciseWordBankItem[]
-    conversationLines ExerciseConversationLine[]
-    attempts          ExerciseAttempt[]
+  lesson            Lesson                     @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  options           ExerciseOption[]
+  matchPairs        ExerciseMatchPair[]
+  wordBankItems     ExerciseWordBankItem[]
+  conversationLines ExerciseConversationLine[]
+  attempts          ExerciseAttempt[]
 
-    @@index([lessonId])
-    @@map("exercises")
+  @@index([lessonId])
+  @@map("exercises")
 }
 
 // Options for multipleChoice, listenAndChoose, tapWhatYouHear, fillInBlank (dropdown)
 model ExerciseOption {
-    id         String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-    exerciseId String  @map("exercise_id") @db.Uuid
-    text       String
-    audioUrl   String? @map("audio_url")
-    imageUrl   String? @map("image_url")
-    isCorrect  Boolean @default(false) @map("is_correct")
-    order      Int     @default(0)
+  id         String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  exerciseId String  @map("exercise_id") @db.Uuid
+  text       String
+  audioUrl   String? @map("audio_url")
+  imageUrl   String? @map("image_url")
+  isCorrect  Boolean @default(false) @map("is_correct")
+  order      Int     @default(0)
 
-    exercise Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  exercise Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
 
-    @@index([exerciseId])
-    @@map("exercise_options")
+  @@index([exerciseId])
+  @@map("exercise_options")
 }
 
 // Pairs for matchPairs exercise type
 model ExerciseMatchPair {
-    id         String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-    exerciseId String  @map("exercise_id") @db.Uuid
-    leftText   String  @map("left_text")
-    leftAudio  String? @map("left_audio")
-    rightText  String  @map("right_text")
-    rightAudio String? @map("right_audio")
-    order      Int     @default(0)
+  id         String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  exerciseId String  @map("exercise_id") @db.Uuid
+  leftText   String  @map("left_text")
+  leftAudio  String? @map("left_audio")
+  rightText  String  @map("right_text")
+  rightAudio String? @map("right_audio")
+  order      Int     @default(0)
 
-    exercise Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  exercise Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
 
-    @@index([exerciseId])
-    @@map("exercise_match_pairs")
+  @@index([exerciseId])
+  @@map("exercise_match_pairs")
 }
 
 // Word bank items for reorderWords and translateSentence
 model ExerciseWordBankItem {
-    id              String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-    exerciseId      String  @map("exercise_id") @db.Uuid
-    text            String
-    correctPosition Int     @map("correct_position") // 0-based index in correct order
-    isDistractor    Boolean @default(false) @map("is_distractor") // Extra wrong word
+  id              String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  exerciseId      String  @map("exercise_id") @db.Uuid
+  text            String
+  correctPosition Int     @map("correct_position") // 0-based index in correct order
+  isDistractor    Boolean @default(false) @map("is_distractor") // Extra wrong word
 
-    exercise Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  exercise Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
 
-    @@index([exerciseId])
-    @@map("exercise_word_bank_items")
+  @@index([exerciseId])
+  @@map("exercise_word_bank_items")
 }
 
 // Dialogue lines for completeConversation and roleplay
 model ExerciseConversationLine {
-    id              String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-    exerciseId      String  @map("exercise_id") @db.Uuid
-    speaker         String // "user" | "bot" | character name
-    text            String // Line text (blank for user-input lines)
-    audioUrl        String? @map("audio_url")
-    isUserTurn      Boolean @default(false) @map("is_user_turn")
-    acceptedAnswers Json?   @map("accepted_answers") @db.JsonB // ["answer1", "answer2"]
-    order           Int
+  id              String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  exerciseId      String  @map("exercise_id") @db.Uuid
+  speaker         String // "user" | "bot" | character name
+  text            String // Line text (blank for user-input lines)
+  audioUrl        String? @map("audio_url")
+  isUserTurn      Boolean @default(false) @map("is_user_turn")
+  acceptedAnswers Json?   @map("accepted_answers") @db.JsonB // ["answer1", "answer2"]
+  order           Int
 
-    exercise Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  exercise Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
 
-    @@index([exerciseId])
-    @@map("exercise_conversation_lines")
+  @@index([exerciseId])
+  @@map("exercise_conversation_lines")
 }
 
 // ─── Exercise Player ────────────────────────────────────────────
 
 model ExerciseSession {
-    id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-    userId       String    @map("user_id") @db.Uuid
-    lessonId     String    @map("lesson_id") @db.Uuid
-    hearts       Int       @default(5) // Lives remaining
-    combo        Int       @default(0) // Current correct streak
-    maxCombo     Int       @default(0) @map("max_combo")
-    totalXp      Int       @default(0) @map("total_xp")
-    correctCount Int       @default(0) @map("correct_count")
-    wrongCount   Int       @default(0) @map("wrong_count")
-    completed    Boolean   @default(false)
-    startedAt    DateTime  @default(now()) @map("started_at") @db.Timestamptz
-    completedAt  DateTime? @map("completed_at") @db.Timestamptz
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId       String    @map("user_id") @db.Uuid
+  lessonId     String    @map("lesson_id") @db.Uuid
+  hearts       Int       @default(5) // Lives remaining
+  combo        Int       @default(0) // Current correct streak
+  maxCombo     Int       @default(0) @map("max_combo")
+  totalXp      Int       @default(0) @map("total_xp")
+  correctCount Int       @default(0) @map("correct_count")
+  wrongCount   Int       @default(0) @map("wrong_count")
+  completed    Boolean   @default(false)
+  startedAt    DateTime  @default(now()) @map("started_at") @db.Timestamptz
+  completedAt  DateTime? @map("completed_at") @db.Timestamptz
 
-    user     User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-    lesson   Lesson            @relation(fields: [lessonId], references: [id], onDelete: Cascade)
-    attempts ExerciseAttempt[]
+  user     User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lesson   Lesson            @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  attempts ExerciseAttempt[]
 
-    @@index([userId])
-    @@index([lessonId])
-    @@index([userId, lessonId])
-    @@map("exercise_sessions")
+  @@index([userId])
+  @@index([lessonId])
+  @@index([userId, lessonId])
+  @@map("exercise_sessions")
 }
 
 model ExerciseAttempt {
-    id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-    sessionId   String   @map("session_id") @db.Uuid
-    exerciseId  String   @map("exercise_id") @db.Uuid
-    userAnswer  Json     @map("user_answer") @db.JsonB // text, selected option IDs, pair matches, word order, audio URL
-    isCorrect   Boolean  @map("is_correct")
-    xpEarned    Int      @default(0) @map("xp_earned")
-    timeTakenMs Int?     @map("time_taken_ms")
-    createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sessionId   String   @map("session_id") @db.Uuid
+  exerciseId  String   @map("exercise_id") @db.Uuid
+  userAnswer  Json     @map("user_answer") @db.JsonB // text, selected option IDs, pair matches, word order, audio URL
+  isCorrect   Boolean  @map("is_correct")
+  xpEarned    Int      @default(0) @map("xp_earned")
+  timeTakenMs Int?     @map("time_taken_ms")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
 
-    session  ExerciseSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-    exercise Exercise        @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  session  ExerciseSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  exercise Exercise        @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
 
-    @@index([sessionId])
-    @@index([exerciseId])
-    @@map("exercise_attempts")
+  @@index([sessionId])
+  @@index([exerciseId])
+  @@map("exercise_attempts")
 }
 
 model UserLessonProgress {
-    id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-    userId      String    @map("user_id") @db.Uuid
-    lessonId    String    @map("lesson_id") @db.Uuid
-    completed   Boolean   @default(false)
-    score       Float?
-    xpEarned    Int       @default(0) @map("xp_earned")
-    completedAt DateTime? @map("completed_at") @db.Timestamptz
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId      String    @map("user_id") @db.Uuid
+  lessonId    String    @map("lesson_id") @db.Uuid
+  completed   Boolean   @default(false)
+  score       Float?
+  xpEarned    Int       @default(0) @map("xp_earned")
+  completedAt DateTime? @map("completed_at") @db.Timestamptz
 
-    user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-    lesson Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lesson Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
 
-    @@unique([userId, lessonId])
-    @@index([userId])
-    @@map("user_lesson_progress")
+  @@unique([userId, lessonId])
+  @@index([userId])
+  @@map("user_lesson_progress")
 }
 
 // ─── Phase 6: Reputation ────────────────────────────────────────
 
 model UserReputation {
-    id           String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-    userId       String @unique @map("user_id") @db.Uuid
-    helpfulVotes Int    @default(0) @map("helpful_votes")
-    clarityScore Float  @default(0) @map("clarity_score")
-    reviewsGiven Int    @default(0) @map("reviews_given")
-    mentorLevel  Int    @default(0) @map("mentor_level") // 0=none, 1=helper, 2=mentor, 3=expert
-    badges       Json   @default("[]") @db.JsonB
+  id           String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId       String @unique @map("user_id") @db.Uuid
+  helpfulVotes Int    @default(0) @map("helpful_votes")
+  clarityScore Float  @default(0) @map("clarity_score")
+  reviewsGiven Int    @default(0) @map("reviews_given")
+  mentorLevel  Int    @default(0) @map("mentor_level") // 0=none, 1=helper, 2=mentor, 3=expert
+  badges       Json   @default("[]") @db.JsonB
 
-    user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-    @@index([helpfulVotes])
-    @@index([mentorLevel])
-    @@map("user_reputations")
+  @@index([helpfulVotes])
+  @@index([mentorLevel])
+  @@map("user_reputations")
 }
 
 // ─── Phase 7: Writing Tests ────────────────────────────────────
 
 model WritingTest {
-    id          Int      @id @default(autoincrement())
-    title       String
-    description String?
-    examType    ExamType @default(cefr) @map("exam_type")
-    isPublished Boolean  @default(false) @map("is_published")
-    createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  id          Int      @id @default(autoincrement())
+  title       String
+  description String?
+  examType    ExamType @default(cefr) @map("exam_type")
+  isPublished Boolean  @default(false) @map("is_published")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
 
-    tasks    WritingTask[]
-    sessions WritingSession[]
+  tasks    WritingTask[]
+  sessions WritingSession[]
 
-    @@index([isPublished])
-    @@map("writing_tests")
+  @@index([isPublished])
+  @@map("writing_tests")
 }
 
 model WritingTask {
-    id        Int      @id @default(autoincrement())
-    testId    Int      @map("test_id")
-    taskText  String   @map("task_text")
-    part      String // e.g. "Task 1", "Task 2"
-    image     String? // optional reference image
-    minWords  Int      @default(150) @map("min_words")
-    maxWords  Int      @default(250) @map("max_words")
-    timeLimit Int      @default(1200) @map("time_limit") // seconds (default 20 min)
-    createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  id        Int      @id @default(autoincrement())
+  testId    Int      @map("test_id")
+  taskText  String   @map("task_text")
+  part      String // e.g. "Task 1", "Task 2"
+  image     String? // optional reference image
+  minWords  Int      @default(150) @map("min_words")
+  maxWords  Int      @default(250) @map("max_words")
+  timeLimit Int      @default(1200) @map("time_limit") // seconds (default 20 min)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
 
-    test      WritingTest       @relation(fields: [testId], references: [id], onDelete: Cascade)
-    responses WritingResponse[]
+  test      WritingTest       @relation(fields: [testId], references: [id], onDelete: Cascade)
+  responses WritingResponse[]
 
-    @@map("writing_tasks")
+  @@map("writing_tasks")
 }
 
 model WritingSession {
-    id         BigInt     @id @default(autoincrement())
-    testId     Int        @map("test_id")
-    userId     String     @map("user_id") @db.Uuid
-    examType   ExamType   @default(cefr) @map("exam_type")
-    visibility Visibility @default(private)
-    groupId    String?    @map("group_id") @db.Uuid
-    scoreAvg   Float?     @map("score_avg")
-    cefrLevel  String?    @map("cefr_level") // Derived: A2, B1, B2, C1, C2
-    createdAt  DateTime   @default(now()) @map("created_at") @db.Timestamptz
+  id         BigInt     @id @default(autoincrement())
+  testId     Int        @map("test_id")
+  userId     String     @map("user_id") @db.Uuid
+  examType   ExamType   @default(cefr) @map("exam_type")
+  visibility Visibility @default(private)
+  groupId    String?    @map("group_id") @db.Uuid
+  scoreAvg   Float?     @map("score_avg")
+  cefrLevel  String?    @map("cefr_level") // Derived: A2, B1, B2, C1, C2
+  createdAt  DateTime   @default(now()) @map("created_at") @db.Timestamptz
 
-    test      WritingTest       @relation(fields: [testId], references: [id], onDelete: Cascade)
-    user      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-    group     Group?            @relation(fields: [groupId], references: [id], onDelete: SetNull)
-    responses WritingResponse[]
-    reviews   WritingReview[]
+  test      WritingTest       @relation(fields: [testId], references: [id], onDelete: Cascade)
+  user      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  group     Group?            @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  responses WritingResponse[]
+  reviews   WritingReview[]
 
-    @@index([userId])
-    @@index([testId])
-    @@index([groupId])
-    @@index([createdAt])
-    @@map("writing_sessions")
+  @@index([userId])
+  @@index([testId])
+  @@index([groupId])
+  @@index([createdAt])
+  @@map("writing_sessions")
 }
 
 model WritingResponse {
-    id           BigInt   @id @default(autoincrement())
-    taskId       Int      @map("task_id")
-    studentId    String   @map("student_id") @db.Uuid
-    sessionId    BigInt?  @map("session_id")
-    essayText    String   @map("essay_text")
-    wordCount    Int      @map("word_count")
-    timeTakenSec Int?     @map("time_taken_sec")
-    createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+  id           BigInt   @id @default(autoincrement())
+  taskId       Int      @map("task_id")
+  studentId    String   @map("student_id") @db.Uuid
+  sessionId    BigInt?  @map("session_id")
+  essayText    String   @map("essay_text")
+  wordCount    Int      @map("word_count")
+  timeTakenSec Int?     @map("time_taken_sec")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
 
-    task       WritingTask        @relation(fields: [taskId], references: [id], onDelete: Cascade)
-    student    User               @relation(fields: [studentId], references: [id], onDelete: Cascade)
-    session    WritingSession?    @relation(fields: [sessionId], references: [id], onDelete: SetNull)
-    aiFeedback WritingAIFeedback?
+  task       WritingTask        @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  student    User               @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  session    WritingSession?    @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  aiFeedback WritingAIFeedback?
 
-    @@index([studentId])
-    @@index([sessionId])
-    @@index([createdAt])
-    @@map("writing_responses")
+  @@index([studentId])
+  @@index([sessionId])
+  @@index([createdAt])
+  @@map("writing_responses")
 }
 
 model WritingAIFeedback {
-    id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-    responseId BigInt   @unique @map("response_id")
-    examType   ExamType @map("exam_type")
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  responseId BigInt   @unique @map("response_id")
+  examType   ExamType @map("exam_type")
 
-    // IELTS bands (0-9) or CEFR scores (1-6)
-    taskAchievement   Float  @map("task_achievement") // Task Response / Task Achievement
-    coherenceCohesion Float  @map("coherence_cohesion") // Coherence & Cohesion
-    lexicalResource   Float  @map("lexical_resource") // Lexical Resource
-    grammaticalRange  Float  @map("grammatical_range") // Grammatical Range & Accuracy
-    overallScore      Float  @map("overall_score")
-    cefrLevel         String @map("cefr_level") // Derived CEFR level
+  // IELTS bands (0-9) or CEFR scores (1-6)
+  taskAchievement   Float  @map("task_achievement") // Task Response / Task Achievement
+  coherenceCohesion Float  @map("coherence_cohesion") // Coherence & Cohesion
+  lexicalResource   Float  @map("lexical_resource") // Lexical Resource
+  grammaticalRange  Float  @map("grammatical_range") // Grammatical Range & Accuracy
+  overallScore      Float  @map("overall_score")
+  cefrLevel         String @map("cefr_level") // Derived CEFR level
 
-    grammarIssues    Json     @default("[]") @map("grammar_issues") @db.JsonB
-    vocabSuggestions Json     @default("[]") @map("vocab_suggestions") @db.JsonB
-    coherenceNotes   Json     @default("[]") @map("coherence_notes") @db.JsonB
-    taskNotes        String?  @map("task_notes") // How well the task was addressed
-    aiSummary        String?  @map("ai_summary")
-    improvedEssay    String?  @map("improved_essay") // AI-rewritten improved version
-    createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz
+  grammarIssues    Json     @default("[]") @map("grammar_issues") @db.JsonB
+  vocabSuggestions Json     @default("[]") @map("vocab_suggestions") @db.JsonB
+  coherenceNotes   Json     @default("[]") @map("coherence_notes") @db.JsonB
+  taskNotes        String?  @map("task_notes") // How well the task was addressed
+  aiSummary        String?  @map("ai_summary")
+  improvedEssay    String?  @map("improved_essay") // AI-rewritten improved version
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz
 
-    response WritingResponse @relation(fields: [responseId], references: [id], onDelete: Cascade)
+  response WritingResponse @relation(fields: [responseId], references: [id], onDelete: Cascade)
 
-    @@index([responseId])
-    @@map("writing_ai_feedbacks")
+  @@index([responseId])
+  @@map("writing_ai_feedbacks")
 }
 
 model WritingReview {
-    id         BigInt   @id @default(autoincrement())
-    sessionId  BigInt   @map("session_id")
-    reviewerId String   @map("reviewer_id") @db.Uuid
-    score      Float // IELTS: 0-9, CEFR: 1-6
-    feedback   String?
-    createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+  id         BigInt   @id @default(autoincrement())
+  sessionId  BigInt   @map("session_id")
+  reviewerId String   @map("reviewer_id") @db.Uuid
+  score      Float // IELTS: 0-9, CEFR: 1-6
+  feedback   String?
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
 
-    session  WritingSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-    reviewer User           @relation(fields: [reviewerId], references: [id], onDelete: Cascade)
+  session  WritingSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  reviewer User           @relation(fields: [reviewerId], references: [id], onDelete: Cascade)
 
-    @@unique([sessionId, reviewerId])
-    @@index([reviewerId])
-    @@map("writing_reviews")
+  @@unique([sessionId, reviewerId])
+  @@index([reviewerId])
+  @@map("writing_reviews")
 }
