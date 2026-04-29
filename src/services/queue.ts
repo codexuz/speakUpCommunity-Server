@@ -64,3 +64,41 @@ export async function enqueueWritingJob(data: WritingProcessJob): Promise<void> 
   if (!queue) return;
   await queue.add('assess', data, { priority: 1 });
 }
+
+// ─── Video Compression Queue ────────────────────────────────────
+
+export interface VideoCompressJob {
+  /** BigInt threadMedia row id (serialised as string) */
+  mediaId: string;
+  /** User id who owns the thread – used for SSE notification */
+  userId: string;
+  /** MinIO object key of the raw (uncompressed) upload */
+  rawObjectKey: string;
+  /** Original file extension e.g. "mp4" */
+  ext: string;
+}
+
+let _videoQueue: Queue<VideoCompressJob> | null = null;
+
+function getVideoQueue(): Queue<VideoCompressJob> | null {
+  if (!process.env.REDIS_URL) return null;
+  if (!_videoQueue) {
+    _videoQueue = new Queue<VideoCompressJob>('video-compression', {
+      connection: createRedisConnection(),
+      defaultJobOptions: {
+        attempts: 3,
+        backoff: { type: 'exponential', delay: 5000 },
+        removeOnComplete: { count: 200 },
+        removeOnFail: { count: 100 },
+      },
+    });
+  }
+  return _videoQueue;
+}
+
+export async function enqueueVideoJob(data: VideoCompressJob): Promise<string | null> {
+  const queue = getVideoQueue();
+  if (!queue) return null;
+  const job = await queue.add('compress', data);
+  return job.id ?? null;
+}

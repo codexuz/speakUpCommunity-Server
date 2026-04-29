@@ -25,6 +25,7 @@ import teacherVerificationRoutes from './routes/teacherVerification';
 import testsRoutes from './routes/tests';
 import usersRoutes from './routes/users';
 import writingRoutes from './routes/writing';
+import threadsRoutes from './routes/threads';
 import { ensureBucket } from './services/minio';
 import { initChatSocket } from './services/chatSocket';
 import { initCronJobs } from './services/cron';
@@ -32,6 +33,7 @@ import { seedAchievements } from './services/seedAchievements';
 import { createWebhookHandler, getTelegramBot } from './services/telegramBot';
 import './workers/audio.worker';
 import './workers/writing.worker';
+import './workers/video.worker';
 
 // BigInt JSON serialization support
 (BigInt.prototype as any).toJSON = function () {
@@ -112,6 +114,7 @@ app.use('/api/courses', coursesRoutes);
 app.use('/api/ai-feedback', aiFeedbackRoutes);
 app.use('/api/writing', writingRoutes);
 app.use('/api/speech', speechRoutes);
+app.use('/api/threads', threadsRoutes);
 
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok' });

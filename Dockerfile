@@ -31,8 +31,8 @@ RUN npx prisma generate
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/public ./public
 
-# Install nginx and configure it as a reverse proxy
-RUN apk add --no-cache nginx
+# Install nginx and ffmpeg
+RUN apk add --no-cache nginx ffmpeg
 
 COPY nginx.conf /etc/nginx/nginx.conf
 COPY docker-entrypoint.sh /docker-entrypoint.sh
