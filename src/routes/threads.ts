@@ -3,7 +3,7 @@ import multer from 'multer';
 import { v4 as uuidv4 } from 'uuid';
 import { AuthenticatedRequest, authenticateRequest } from '../middleware/auth';
 import prisma from '../prisma';
-import { uploadImage, uploadRawVideo } from '../services/minio';
+import { uploadImage, uploadRawVideo, deleteMediaFromUrl } from '../services/minio';
 import { enqueueVideoJob } from '../services/queue';
 
 const router = Router();
@@ -637,7 +637,13 @@ router.delete('/:id', async (req: Request, res: Response) => {
 
     const thread = await prisma.thread.findUnique({
       where: { id: threadId },
-      select: { id: true, authorId: true, isDeleted: true, parentId: true },
+      select: {
+        id: true,
+        authorId: true,
+        isDeleted: true,
+        parentId: true,
+        media: { select: { url: true, thumbnailUrl: true } },
+      },
     });
 
     if (!thread || thread.isDeleted) {
@@ -649,6 +655,16 @@ router.delete('/:id', async (req: Request, res: Response) => {
       return;
     }
 
+    // Delete media files from object storage
+    if (thread.media && thread.media.length > 0) {
+      for (const m of thread.media) {
+        await deleteMediaFromUrl(m.url);
+        if (m.thumbnailUrl) {
+          await deleteMediaFromUrl(m.thumbnailUrl);
+        }
+      }
+    }
+
     const ops: any[] = [
       prisma.thread.update({
         where: { id: threadId },
@@ -656,6 +672,8 @@ router.delete('/:id', async (req: Request, res: Response) => {
       }),
       // Remove likes on the soft-deleted node so the count stays clean
       prisma.threadLike.deleteMany({ where: { threadId } }),
+      // Remove media records from DB since the files are gone
+      prisma.threadMedia.deleteMany({ where: { threadId } }),
     ];
 
     // Keep parent repliesCount in sync when a reply is deleted
