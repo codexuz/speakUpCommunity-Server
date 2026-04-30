@@ -547,8 +547,62 @@ router.post('/:id/repost', async (req: Request, res: Response) => {
   }
 });
 
-// ─── DELETE /api/threads/:id ────────────────────────────────────
-// Soft-delete a thread (author only; admin can also hard-delete)
+// ─── PATCH /api/threads/:id ─────────────────────────────────────
+// Edit a thread or reply — author only
+router.patch('/:id', async (req: Request, res: Response) => {
+  try {
+    const auth = (req as AuthenticatedRequest).auth!;
+    const threadId = BigInt(req.params.id as string);
+    const { text, visibility } = req.body as {
+      text?: string;
+      visibility?: 'public' | 'followers';
+    };
+
+    const thread = await prisma.thread.findUnique({
+      where: { id: threadId },
+      select: { id: true, authorId: true, isDeleted: true, media: { select: { id: true } } },
+    });
+
+    if (!thread || thread.isDeleted) {
+      res.status(404).json({ error: 'Thread not found' });
+      return;
+    }
+    if (thread.authorId !== auth.userId) {
+      res.status(403).json({ error: 'Not authorised' });
+      return;
+    }
+
+    const trimmedText = text?.trim();
+    if (trimmedText === '' && thread.media.length === 0) {
+      res.status(400).json({ error: 'Thread must have text or media' });
+      return;
+    }
+
+    const updates: Record<string, any> = {};
+    if (text !== undefined) updates.text = trimmedText || null;
+    if (visibility !== undefined) updates.visibility = visibility;
+
+    if (Object.keys(updates).length === 0) {
+      res.status(400).json({ error: 'No editable fields provided' });
+      return;
+    }
+
+    const updated = await prisma.thread.update({
+      where: { id: threadId },
+      data: updates,
+      include: THREAD_INCLUDE(auth.userId),
+    });
+
+    res.json(formatThread(updated, auth.userId));
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── DELETE /api/threads/:id ─────────────────────────────────────
+// Soft-delete a thread or reply (author only; admin can also delete any).
+// When a reply is deleted: parent repliesCount is decremented and all
+// likes on the deleted node are removed to keep denormalised counts accurate.
 router.delete('/:id', async (req: Request, res: Response) => {
   try {
     const auth = (req as AuthenticatedRequest).auth!;
@@ -556,25 +610,109 @@ router.delete('/:id', async (req: Request, res: Response) => {
 
     const thread = await prisma.thread.findUnique({
       where: { id: threadId },
-      select: { id: true, authorId: true, isDeleted: true },
+      select: { id: true, authorId: true, isDeleted: true, parentId: true },
     });
 
     if (!thread || thread.isDeleted) {
       res.status(404).json({ error: 'Thread not found' });
       return;
     }
-
     if (thread.authorId !== auth.userId && auth.role !== 'admin') {
       res.status(403).json({ error: 'Not authorised' });
       return;
     }
 
-    await prisma.thread.update({
-      where: { id: threadId },
-      data: { isDeleted: true, text: null },
-    });
+    const ops: any[] = [
+      prisma.thread.update({
+        where: { id: threadId },
+        data: { isDeleted: true, text: null, likesCount: 0 },
+      }),
+      // Remove likes on the soft-deleted node so the count stays clean
+      prisma.threadLike.deleteMany({ where: { threadId } }),
+    ];
+
+    // Keep parent repliesCount in sync when a reply is deleted
+    if (thread.parentId) {
+      ops.push(
+        prisma.thread.update({
+          where: { id: thread.parentId },
+          data: { repliesCount: { decrement: 1 } },
+        }),
+      );
+    }
+
+    await prisma.$transaction(ops);
 
     res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── POST /api/threads/:id/report ───────────────────────────────
+// Report a thread or reply for moderation; one report per user per thread
+router.post('/:id/report', async (req: Request, res: Response) => {
+  try {
+    const auth = (req as AuthenticatedRequest).auth!;
+    const threadId = BigInt(req.params.id as string);
+    const { reason } = req.body as { reason?: string };
+
+    if (!reason?.trim()) {
+      res.status(400).json({ error: 'A reason is required' });
+      return;
+    }
+
+    const thread = await prisma.thread.findUnique({
+      where: { id: threadId },
+      select: { id: true, isDeleted: true, authorId: true },
+    });
+    if (!thread || thread.isDeleted) {
+      res.status(404).json({ error: 'Thread not found' });
+      return;
+    }
+    if (thread.authorId === auth.userId) {
+      res.status(400).json({ error: 'Cannot report your own thread' });
+      return;
+    }
+
+    const existing = await prisma.threadReport.findUnique({
+      where: { threadId_userId: { threadId, userId: auth.userId } },
+    });
+    if (existing) {
+      res.status(409).json({ error: 'Already reported' });
+      return;
+    }
+
+    await prisma.threadReport.create({
+      data: { threadId, userId: auth.userId, reason: reason.trim() },
+    });
+
+    res.status(201).json({ reported: true });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── DELETE /api/threads/:id/report ─────────────────────────────
+// Retract a previously submitted report (reporter only)
+router.delete('/:id/report', async (req: Request, res: Response) => {
+  try {
+    const auth = (req as AuthenticatedRequest).auth!;
+    const threadId = BigInt(req.params.id as string);
+
+    const report = await prisma.threadReport.findUnique({
+      where: { threadId_userId: { threadId, userId: auth.userId } },
+    });
+    if (!report) {
+      res.status(404).json({ error: 'Report not found' });
+      return;
+    }
+
+    await prisma.threadReport.delete({
+      where: { threadId_userId: { threadId, userId: auth.userId } },
+    });
+
+    res.json({ deleted: true });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }

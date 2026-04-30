@@ -179,6 +179,18 @@ function buildPronIssues(words: TranscriptionResult['words']) {
 }
 
 /**
+ * Convert internal 0-100 overallScore to the exam-specific scale.
+ * CEFR: 0–75 (integer), IELTS: 0–9 in 0.5 steps
+ */
+function toExamScore(overallScore: number, examType: 'cefr' | 'ielts'): number {
+  if (examType === 'ielts') {
+    const raw = (overallScore / 100) * 9;
+    return Math.round(raw * 2) / 2; // nearest 0.5
+  }
+  return Math.round((overallScore / 100) * 75);
+}
+
+/**
  * Full AI feedback pipeline: transcribe → analyze → store
  */
 export async function generateAIFeedback(
@@ -186,6 +198,7 @@ export async function generateAIFeedback(
   audioBuffer: Buffer,
   mimetype: string,
   questionText: string,
+  examType: 'cefr' | 'ielts' = 'cefr',
 ): Promise<void> {
   // Step 1: Transcribe with Deepgram
   const transcription = await transcribeAudio(audioBuffer, mimetype);
@@ -195,6 +208,8 @@ export async function generateAIFeedback(
     await prisma.aIFeedback.create({
       data: {
         responseId,
+        examType,
+        aiScore: 0,
         transcript: '',
         grammarScore: 0,
         fluencyWPM: 0,
@@ -234,10 +249,14 @@ export async function generateAIFeedback(
     ? (transcription.words.length / transcription.duration) * 60
     : 0;
 
+  const aiScore = toExamScore(analysis.overallScore, examType);
+
   // Step 4: Store in DB
   await prisma.aIFeedback.create({
     data: {
       responseId,
+      examType,
+      aiScore,
       transcript: transcription.transcript,
       grammarScore: analysis.grammarScore,
       fluencyWPM: Math.round(fluencyWPM * 10) / 10,

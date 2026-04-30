@@ -39,19 +39,24 @@ if (process.env.REDIS_URL) {
       // ─── AI Feedback Pipeline ─────────────────────────────────
       if (process.env.OPENAI_API_KEY && process.env.DEEPGRAM_API_KEY) {
         try {
-          // Get question text for context
+          // Get question text and exam type for context
           const response = await prisma.response.findUnique({
             where: { id: BigInt(responseId) },
-            include: { question: { select: { qText: true } } },
+            include: {
+              question: { select: { qText: true } },
+              session: { select: { examType: true } },
+            },
           });
 
           const questionText = response?.question?.qText || 'General speaking practice';
+          const examType = (response?.session?.examType ?? 'cefr') as 'cefr' | 'ielts';
 
           await generateAIFeedback(
             BigInt(responseId),
             buffer,
             'audio/m4a',
             questionText,
+            examType,
           );
 
           console.log(`AI feedback generated for response ${responseId}`);

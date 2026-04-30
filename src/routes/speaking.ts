@@ -7,7 +7,7 @@ import {
     requireRole,
 } from '../middleware/auth';
 import { uploadLimiter } from '../middleware/rateLimiter';
-import { sendPushNotification, sendPushToMultiple } from '../notifications';
+import { sendPushNotification } from '../notifications';
 import prisma from '../prisma';
 import { uploadAudio } from '../services/minio';
 import { enqueueAudioJob } from '../services/queue';
@@ -83,7 +83,7 @@ router.get('/my', async (req: Request, res: Response) => {
   }
 });
 
-// GET /api/speaking/sessions/:sessionId — get a session with test, user, and all responses
+// GET /api/speaking/sessions/:sessionId — get a session with test, user, responses, and labeled checks
 router.get('/sessions/:sessionId', async (req: Request, res: Response) => {
   try {
     const auth = (req as AuthenticatedRequest).auth!;
@@ -98,6 +98,26 @@ router.get('/sessions/:sessionId', async (req: Request, res: Response) => {
           orderBy: { createdAt: 'asc' },
           include: {
             question: { select: { id: true, qText: true, part: true, speakingTimer: true, prepTimer: true } },
+            aiFeedback: {
+              select: {
+                aiScore: true,
+                examType: true,
+                overallScore: true,
+                grammarScore: true,
+                fluencyScore: true,
+                vocabDiversity: true,
+                pronScore: true,
+                aiSummary: true,
+                naturalness: true,
+                fluencyWPM: true,
+                pauseCount: true,
+                grammarIssues: true,
+                vocabSuggestions: true,
+                pronIssues: true,
+                fillerWords: true,
+                transcript: true,
+              },
+            },
           },
         },
         reviews: {
@@ -113,26 +133,52 @@ router.get('/sessions/:sessionId', async (req: Request, res: Response) => {
       return;
     }
 
-    // Check access: owner or teacher/admin can view
-    if (session.userId !== auth.userId && auth.role !== 'teacher' && auth.role !== 'admin') {
-      if (session.groupId) {
-        const membership = await prisma.groupMember.findUnique({
-          where: { groupId_userId: { groupId: session.groupId, userId: auth.userId } },
-        });
-        if (!membership) {
-          res.status(403).json({ error: 'Access denied' });
-          return;
-        }
-      } else if (session.visibility !== 'community') {
-        res.status(403).json({ error: 'Access denied' });
-        return;
-      }
+    // Access control: owner, teacher, admin, or public community session
+    const isOwner = session.userId === auth.userId;
+    const isPrivileged = auth.role === 'teacher' || auth.role === 'admin';
+    if (!isOwner && !isPrivileged && session.visibility !== 'community') {
+      res.status(403).json({ error: 'Access denied' });
+      return;
     }
 
     // Check if current user liked this session
     const liked = await prisma.like.findUnique({
       where: { sessionId_userId: { sessionId: session.id, userId: auth.userId } },
     });
+
+    // Build labeled checks: TEACHER reviews + AI feedback per response
+    const teacherChecks = session.reviews.map((r: any) => ({
+      label: 'TEACHER' as const,
+      id: r.id.toString(),
+      reviewer: r.reviewer,
+      score: r.score,
+      level: getLevelLabel(r.score, session.examType),
+      feedback: r.feedback,
+      createdAt: r.createdAt,
+    }));
+
+    const aiChecks = session.responses
+      .filter((r: any) => r.aiFeedback)
+      .map((r: any) => ({
+        label: 'AI' as const,
+        responseId: r.id.toString(),
+        score: r.aiFeedback.aiScore,
+        level: getLevelLabel(r.aiFeedback.aiScore, r.aiFeedback.examType),
+        overallScore: r.aiFeedback.overallScore,
+        grammarScore: r.aiFeedback.grammarScore,
+        fluencyScore: r.aiFeedback.fluencyScore,
+        vocabDiversity: r.aiFeedback.vocabDiversity,
+        pronScore: r.aiFeedback.pronScore,
+        fluencyWPM: r.aiFeedback.fluencyWPM,
+        pauseCount: r.aiFeedback.pauseCount,
+        aiSummary: r.aiFeedback.aiSummary,
+        naturalness: r.aiFeedback.naturalness,
+        grammarIssues: r.aiFeedback.grammarIssues,
+        vocabSuggestions: r.aiFeedback.vocabSuggestions,
+        pronIssues: r.aiFeedback.pronIssues,
+        fillerWords: r.aiFeedback.fillerWords,
+        transcript: r.aiFeedback.transcript,
+      }));
 
     res.json({
       ...session,
@@ -142,58 +188,25 @@ router.get('/sessions/:sessionId', async (req: Request, res: Response) => {
       responses: session.responses.map((r: any) => ({
         ...r,
         id: r.id.toString(),
+        aiFeedback: undefined, // exposed via checks instead
       })),
-      reviews: session.reviews.map((r: any) => ({
-        ...r,
-        id: r.id.toString(),
-        cefrLevel: getLevelLabel(r.score, session.examType),
-      })),
+      checks: [...teacherChecks, ...aiChecks],
+      // keep reviews for backwards compat
+      reviews: undefined,
     });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
 });
 
-// GET /api/speaking/pending — unreviewed sessions from students in the teacher's non-global groups
+// GET /api/speaking/pending — all unreviewed sessions (teacher/admin)
 router.get('/pending', requireRole('teacher'), async (req: Request, res: Response) => {
   try {
-    const auth = (req as AuthenticatedRequest).auth!;
     const page = Math.max(1, parseInt(req.query.page as string) || 1);
     const limit = Math.min(50, Math.max(1, parseInt(req.query.limit as string) || 20));
     const offset = (page - 1) * limit;
 
-    // Find non-global groups where the teacher is owner or teacher
-    const managedGroups = await prisma.groupMember.findMany({
-      where: {
-        userId: auth.userId,
-        role: { in: ['owner', 'teacher'] },
-        group: { isGlobal: false },
-      },
-      select: { groupId: true },
-    });
-    const groupIds = managedGroups.map((m) => m.groupId);
-
-    if (groupIds.length === 0) {
-      res.json({ data: [], pagination: { page, limit, total: 0, totalPages: 0 } });
-      return;
-    }
-
-    // Find students who are members of those groups
-    const studentMembers = await prisma.groupMember.findMany({
-      where: { groupId: { in: groupIds }, userId: { not: auth.userId } },
-      select: { userId: true },
-    });
-    const studentIds = [...new Set(studentMembers.map((m) => m.userId))];
-
-    if (studentIds.length === 0) {
-      res.json({ data: [], pagination: { page, limit, total: 0, totalPages: 0 } });
-      return;
-    }
-
-    const where = {
-      userId: { in: studentIds },
-      reviews: { none: {} },
-    };
+    const where = { reviews: { none: {} } };
 
     const [sessions, total] = await Promise.all([
       prisma.testSession.findMany({
@@ -204,7 +217,6 @@ router.get('/pending', requireRole('teacher'), async (req: Request, res: Respons
         include: {
           user: { select: { id: true, fullName: true, username: true, avatarUrl: true } },
           test: { select: { id: true, title: true, description: true } },
-          group: { select: { id: true, name: true } },
           _count: { select: { responses: true } },
         },
       }),
@@ -231,40 +243,16 @@ router.post(
   async (req: Request, res: Response) => {
     try {
       const auth = (req as AuthenticatedRequest).auth!;
-      const { questionId, visibility, groupId, sessionId, testId } = req.body;
+      const { questionId, visibility, sessionId, testId } = req.body;
 
       if (!questionId) {
         res.status(400).json({ error: 'questionId is required' });
         return;
       }
 
-      const vis = ['private', 'group', 'community', 'ai_only'].includes(visibility)
+      const vis = ['private', 'community', 'ai_only'].includes(visibility)
         ? visibility
         : 'community';
-
-      // Validate group membership if groupId provided
-      let resolvedGroupId: string | null = null;
-      if (groupId) {
-        const group = await prisma.group.findUnique({
-          where: { id: groupId },
-          select: { isGlobal: true },
-        });
-        if (group) {
-          if (group.isGlobal) {
-            resolvedGroupId = groupId;
-          } else {
-            const membership = await prisma.groupMember.findUnique({
-              where: { groupId_userId: { groupId, userId: auth.userId } },
-            });
-            if (membership) {
-              resolvedGroupId = groupId;
-            }
-          }
-        }
-      }
-
-      // Force private if no valid group
-      const finalVisibility = resolvedGroupId ? vis : (vis === 'group' ? 'private' : vis);
 
       // Resolve or create a session
       let resolvedSessionId: bigint | null = null;
@@ -291,8 +279,7 @@ router.post(
           data: {
             testId: test.id,
             userId: auth.userId,
-            visibility: finalVisibility,
-            groupId: resolvedGroupId,
+            visibility: vis,
             examType: test.testType,
             isAnonymous: req.body.isAnonymous === true || req.body.isAnonymous === 'true',
           },
@@ -335,43 +322,6 @@ router.post(
         });
       }
 
-      // SSE + push notify group members
-      if (resolvedGroupId) {
-        const members = await prisma.groupMember.findMany({
-          where: { groupId: resolvedGroupId },
-          select: { userId: true, user: { select: { pushToken: true } } },
-        });
-
-        const otherMemberIds = members
-          .map((m: any) => m.userId)
-          .filter((id: any) => id !== auth.userId);
-
-        sseManager.sendToUsers(otherMemberIds, 'new-speaking', {
-          id: response.id.toString(),
-          studentName: response.student.fullName,
-          question: response.question?.qText.slice(0, 80),
-
-        });
-
-        const teacherTokens = members
-          .filter(
-            (m: any) =>
-              m.userId !== auth.userId && m.user.pushToken,
-          )
-          .map((m: any) => m.user.pushToken!)
-          .filter(Boolean);
-
-        if (teacherTokens.length > 0) {
-          await sendPushToMultiple(
-            teacherTokens,
-            'New Speaking Submission',
-            `${response.student.fullName} submitted: "${response.question?.qText.slice(0, 50)}..."`,
-
-            { type: 'new_submission', responseId: response.id.toString() },
-          );
-        }
-      }
-
       res.status(201).json({
         ...response,
         id: response.id.toString(),
@@ -404,34 +354,16 @@ router.get('/:id', async (req: Request, res: Response) => {
     const session = response.sessionId
       ? await prisma.testSession.findUnique({
           where: { id: response.sessionId },
-          select: { visibility: true, groupId: true, userId: true },
+          select: { visibility: true, userId: true },
         })
       : null;
 
     if (session) {
-      if (session.visibility === 'private' && response.studentId !== auth.userId) {
-        if (session.groupId) {
-          const membership = await prisma.groupMember.findUnique({
-            where: { groupId_userId: { groupId: session.groupId, userId: auth.userId } },
-          });
-          if (!membership || !['owner', 'teacher'].includes(membership.role)) {
-            res.status(403).json({ error: 'This submission is private' });
-            return;
-          }
-        } else {
-          res.status(403).json({ error: 'This submission is private' });
-          return;
-        }
-      } else if (session.visibility === 'group' && session.groupId) {
-        if (response.studentId !== auth.userId) {
-          const membership = await prisma.groupMember.findUnique({
-            where: { groupId_userId: { groupId: session.groupId, userId: auth.userId } },
-          });
-          if (!membership) {
-            res.status(403).json({ error: 'Only group members can view this' });
-            return;
-          }
-        }
+      const isOwner = response.studentId === auth.userId;
+      const isPrivileged = auth.role === 'teacher' || auth.role === 'admin';
+      if (!isOwner && !isPrivileged && session.visibility === 'private') {
+        res.status(403).json({ error: 'This submission is private' });
+        return;
       }
     }
 
@@ -473,8 +405,8 @@ router.put('/sessions/:sessionId', async (req: Request, res: Response) => {
     }
 
     const { visibility } = req.body;
-    if (!visibility || !['private', 'group', 'community'].includes(visibility)) {
-      res.status(400).json({ error: 'visibility must be one of: private, group, community' });
+    if (!visibility || !['private', 'community', 'ai_only'].includes(visibility)) {
+      res.status(400).json({ error: 'visibility must be one of: private, community, ai_only' });
       return;
     }
 
