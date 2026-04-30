@@ -164,7 +164,7 @@ model User {
   writingReviews        WritingReview[]
   threads               Thread[]                 @relation("ThreadAuthor")
   threadLikes           ThreadLike[]
-  threadReposts         ThreadRepost[]
+  threadSaves           ThreadSave[]
   threadReports         ThreadReport[]
 
   @@map("users")
@@ -1024,7 +1024,7 @@ model Thread {
   visibility   ThreadVisibility @default(public)
   likesCount   Int              @default(0) @map("likes_count")
   repliesCount Int              @default(0) @map("replies_count")
-  repostsCount Int              @default(0) @map("reposts_count")
+  savesCount   Int              @default(0) @map("saves_count")
   isDeleted    Boolean          @default(false) @map("is_deleted")
   createdAt    DateTime         @default(now()) @map("created_at") @db.Timestamptz
   updatedAt    DateTime         @updatedAt @map("updated_at") @db.Timestamptz
@@ -1036,7 +1036,7 @@ model Thread {
   rootedThreads Thread[]       @relation("RootReplies")
   media         ThreadMedia[]
   likes         ThreadLike[]
-  reposts       ThreadRepost[]
+  saves         ThreadSave[]
   reports       ThreadReport[]
 
   @@index([authorId, createdAt])
@@ -1080,11 +1080,10 @@ model ThreadLike {
   @@map("thread_likes")
 }
 
-model ThreadRepost {
+model ThreadSave {
   id        BigInt   @id @default(autoincrement())
   threadId  BigInt   @map("thread_id")
   userId    String   @map("user_id") @db.Uuid
-  quoteText String?  @map("quote_text")
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
 
   thread Thread @relation(fields: [threadId], references: [id], onDelete: Cascade)
@@ -1092,7 +1091,7 @@ model ThreadRepost {
 
   @@unique([threadId, userId])
   @@index([userId])
-  @@map("thread_reposts")
+  @@map("thread_saves")
 }
 
 model ThreadReport {

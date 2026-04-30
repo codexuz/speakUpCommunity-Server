@@ -49,30 +49,9 @@ function formatThread(thread: any, viewerId: string) {
     visibility: thread.visibility,
     likesCount: thread.likesCount,
     repliesCount: thread.repliesCount,
-    repostsCount: thread.repostsCount,
+    savesCount: thread.savesCount,
     likedByMe: thread.likes?.some((l: any) => l.userId === viewerId) ?? false,
-    repostedByMe: (thread.reposts ?? []).some((r: any) => r.userId === viewerId),
-    reposts: (thread.reposts ?? []).map((r: any) => ({
-      id: r.id.toString(),
-      repostedBy: r.user,
-      quoteText: r.quoteText ?? null,
-      createdAt: r.createdAt,
-      thread: {
-        id: r.thread.id.toString(),
-        text: r.thread.text,
-        media: (r.thread.media ?? []).map((m: any) => ({
-          id: m.id.toString(),
-          type: m.type,
-          url: m.url,
-          thumbnailUrl: m.thumbnailUrl ?? null,
-          width: m.width,
-          height: m.height,
-          durationSecs: m.durationSecs,
-          mimeType: m.mimeType,
-          order: m.order,
-        })),
-      },
-    })),
+    savedByMe: (thread.saves ?? []).some((s: any) => s.userId === viewerId),
     createdAt: thread.createdAt,
     updatedAt: thread.updatedAt,
   };
@@ -88,23 +67,7 @@ const THREAD_INCLUDE = (userId: string) => ({
   author: { select: AUTHOR_SELECT },
   media: { orderBy: { order: 'asc' as const } },
   likes: { where: { userId }, select: { userId: true } },
-  reposts: {
-    orderBy: { createdAt: 'desc' as const },
-    select: {
-      id: true,
-      userId: true,
-      quoteText: true,
-      createdAt: true,
-      user: { select: AUTHOR_SELECT },
-      thread: {
-        select: {
-          id: true,
-          text: true,
-          media: { orderBy: { order: 'asc' as const } },
-        },
-      },
-    },
-  },
+  saves: { where: { userId }, select: { userId: true } },
 });
 
 // ─── POST /api/threads ──────────────────────────────────────────
@@ -539,45 +502,72 @@ router.post('/:id/like', async (req: Request, res: Response) => {
   }
 });
 
-// ─── POST /api/threads/:id/repost ───────────────────────────────
-// Toggle repost (optionally with quote text)
-router.post('/:id/repost', async (req: Request, res: Response) => {
+// ─── GET /api/threads/saved ─────────────────────────────────────
+// List threads saved by the current user
+router.get('/saved', async (req: Request, res: Response) => {
+  try {
+    const auth = (req as AuthenticatedRequest).auth!;
+    const { cursor, limit } = parsePaging(req);
+
+    const saves = await prisma.threadSave.findMany({
+      where: {
+        userId: auth.userId,
+        ...(cursor ? { id: { lt: BigInt(cursor) } } : {}),
+      },
+      orderBy: { id: 'desc' },
+      take: limit,
+      select: {
+        id: true,
+        createdAt: true,
+        thread: { include: THREAD_INCLUDE(auth.userId) },
+      },
+    });
+
+    const nextCursor = saves.length === limit ? saves[saves.length - 1].id.toString() : null;
+
+    res.json({
+      threads: saves
+        .filter((s) => !s.thread.isDeleted)
+        .map((s) => formatThread(s.thread, auth.userId)),
+      nextCursor,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── POST /api/threads/:id/save ──────────────────────────────────
+// Toggle save (bookmark) on a thread
+router.post('/:id/save', async (req: Request, res: Response) => {
   try {
     const auth = (req as AuthenticatedRequest).auth!;
     const threadId = BigInt(req.params.id as string);
-    const { quoteText } = req.body as { quoteText?: string };
 
     const thread = await prisma.thread.findUnique({
       where: { id: threadId },
-      select: { id: true, isDeleted: true, authorId: true },
+      select: { id: true, isDeleted: true },
     });
     if (!thread || thread.isDeleted) {
       res.status(404).json({ error: 'Thread not found' });
       return;
     }
-    if (thread.authorId === auth.userId) {
-      res.status(400).json({ error: 'Cannot repost your own thread' });
-      return;
-    }
 
-    const existing = await prisma.threadRepost.findUnique({
+    const existing = await prisma.threadSave.findUnique({
       where: { threadId_userId: { threadId, userId: auth.userId } },
     });
 
     if (existing) {
       await prisma.$transaction([
-        prisma.threadRepost.delete({ where: { threadId_userId: { threadId, userId: auth.userId } } }),
-        prisma.thread.update({ where: { id: threadId }, data: { repostsCount: { decrement: 1 } } }),
+        prisma.threadSave.delete({ where: { threadId_userId: { threadId, userId: auth.userId } } }),
+        prisma.thread.update({ where: { id: threadId }, data: { savesCount: { decrement: 1 } } }),
       ]);
-      res.json({ reposted: false });
+      res.json({ saved: false });
     } else {
       await prisma.$transaction([
-        prisma.threadRepost.create({
-          data: { threadId, userId: auth.userId, quoteText: quoteText?.trim() || null },
-        }),
-        prisma.thread.update({ where: { id: threadId }, data: { repostsCount: { increment: 1 } } }),
+        prisma.threadSave.create({ data: { threadId, userId: auth.userId } }),
+        prisma.thread.update({ where: { id: threadId }, data: { savesCount: { increment: 1 } } }),
       ]);
-      res.json({ reposted: true });
+      res.json({ saved: true });
     }
   } catch (err: any) {
     res.status(500).json({ error: err.message });
