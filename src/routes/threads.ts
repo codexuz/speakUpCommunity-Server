@@ -109,6 +109,8 @@ router.post('/', upload.array('media', 4), async (req: Request, res: Response) =
       url: string;
       thumbnailUrl?: string;
       durationSecs?: number;
+      width?: number;
+      height?: number;
       sizeBytes: number;
       mimeType: string;
       order: number;
