@@ -114,7 +114,7 @@ export async function downloadToTmpFile(objectKey: string, suffix: string): Prom
 export async function compressVideoFile(
   inputPath: string,
   baseName: string,
-): Promise<{ outputPath: string; thumbPath: string; durationSecs: number }> {
+): Promise<{ outputPath: string; thumbPath: string; durationSecs: number; width: number; height: number }> {
   const tmpDir = os.tmpdir();
   const outputPath = path.join(tmpDir, `out_${baseName}.mp4`);
   const thumbPath = path.join(tmpDir, `thumb_${baseName}.jpg`);
@@ -149,13 +149,18 @@ export async function compressVideoFile(
     }),
   ]);
 
-  const durationSecs = await new Promise<number>((resolve) => {
+  const { durationSecs, width, height } = await new Promise<{ durationSecs: number; width: number; height: number }>((resolve) => {
     ffmpeg.ffprobe(outputPath, (_err, meta) => {
-      resolve(meta?.format?.duration ?? 0);
+      const videoStream = meta?.streams?.find((s) => s.codec_type === 'video');
+      resolve({
+        durationSecs: meta?.format?.duration ?? 0,
+        width: videoStream?.width ?? 0,
+        height: videoStream?.height ?? 0,
+      });
     });
   });
 
-  return { outputPath, thumbPath, durationSecs };
+  return { outputPath, thumbPath, durationSecs, width, height };
 }
 
 /**
@@ -200,6 +205,26 @@ export async function deleteMediaFromUrl(url: string | null | undefined): Promis
 }
 
 /** Delete a MinIO object (silent on missing key). */
+/**
+ * Probe an image buffer for width and height using ffprobe.
+ * Writes a temp file, probes it, then removes it.
+ * Returns { width, height } (0 if probing fails).
+ */
+export async function getImageDimensions(
+  buffer: Buffer,
+  ext: string,
+): Promise<{ width: number; height: number }> {
+  const tmpPath = path.join(os.tmpdir(), `img_probe_${Date.now()}.${ext}`);
+  fs.writeFileSync(tmpPath, buffer);
+  return new Promise<{ width: number; height: number }>((resolve) => {
+    ffmpeg.ffprobe(tmpPath, (_err, meta) => {
+      try { fs.unlinkSync(tmpPath); } catch { /* ignore */ }
+      const stream = meta?.streams?.find((s) => s.codec_type === 'video');
+      resolve({ width: stream?.width ?? 0, height: stream?.height ?? 0 });
+    });
+  });
+}
+
 export async function deleteObject(objectKey: string): Promise<void> {
   try {
     await minioClient.removeObject(BUCKET, objectKey);

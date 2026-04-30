@@ -3,7 +3,7 @@ import multer from 'multer';
 import { v4 as uuidv4 } from 'uuid';
 import { AuthenticatedRequest, authenticateRequest } from '../middleware/auth';
 import prisma from '../prisma';
-import { uploadImage, uploadRawVideo, deleteMediaFromUrl } from '../services/minio';
+import { uploadImage, uploadRawVideo, deleteMediaFromUrl, getImageDimensions } from '../services/minio';
 import { enqueueVideoJob } from '../services/queue';
 
 const router = Router();
@@ -133,9 +133,12 @@ router.post('/', upload.array('media', 4), async (req: Request, res: Response) =
         videoPendingItems.push({ rawObjectKey, ext, payloadIndex: mediaPayloads.length - 1 });
       } else {
         const url = await uploadImage(`threads/${id}.${ext}`, file.buffer, file.mimetype);
+        const { width, height } = await getImageDimensions(file.buffer, ext);
         mediaPayloads.push({
           type: 'image',
           url,
+          width: width || undefined,
+          height: height || undefined,
           sizeBytes: file.size,
           mimeType: file.mimetype,
           order: i,
@@ -222,6 +225,8 @@ router.post('/:id/reply', upload.array('media', 4), async (req: Request, res: Re
       url: string;
       thumbnailUrl?: string;
       durationSecs?: number;
+      width?: number;
+      height?: number;
       sizeBytes: number;
       mimeType: string;
       order: number;
@@ -240,7 +245,8 @@ router.post('/:id/reply', upload.array('media', 4), async (req: Request, res: Re
         videoPendingItems.push({ rawObjectKey, ext, payloadIndex: mediaPayloads.length - 1 });
       } else {
         const url = await uploadImage(`threads/${id}.${ext}`, file.buffer, file.mimetype);
-        mediaPayloads.push({ type: 'image', url, sizeBytes: file.size, mimeType: file.mimetype, order: i });
+        const { width, height } = await getImageDimensions(file.buffer, ext);
+        mediaPayloads.push({ type: 'image', url, width: width || undefined, height: height || undefined, sizeBytes: file.size, mimeType: file.mimetype, order: i });
       }
     }
 

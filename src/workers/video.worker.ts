@@ -41,6 +41,7 @@ if (process.env.REDIS_URL) {
         const result = await compressVideoFile(rawTmpPath, baseName);
         outputPath = result.outputPath;
         thumbPath = result.thumbPath;
+        const { width, height } = result;
 
         await job.updateProgress(70);
 
@@ -66,6 +67,8 @@ if (process.env.REDIS_URL) {
             thumbnailUrl: thumbnailUrl || null,
             durationSecs,
             mimeType: 'video/mp4',
+            width: width || null,
+            height: height || null,
           },
         });
 
