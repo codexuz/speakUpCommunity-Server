@@ -1,6 +1,6 @@
 import { Job, Worker } from 'bullmq';
 import prisma from '../prisma';
-import { getAudioBuffer, uploadAudio } from '../services/minio';
+import { getAudioBuffer, uploadAudio, deleteAudio } from '../services/minio';
 import { createRedisConnection } from '../services/redis';
 import { generateAIFeedback } from '../services/aiFeedback';
 import { awardXP, updateSkillAverages, checkAllAchievements, XP_REWARDS } from '../services/gamification';
@@ -35,6 +35,9 @@ if (process.env.REDIS_URL) {
           remoteUrl: processedUrl,
         },
       });
+
+      // Delete the original unprocessed audio to free up storage
+      await deleteAudio(fileName);
 
       // ─── AI Feedback Pipeline ─────────────────────────────────
       if (process.env.OPENAI_API_KEY && process.env.DEEPGRAM_API_KEY) {

@@ -51,7 +51,28 @@ function formatThread(thread: any, viewerId: string) {
     repliesCount: thread.repliesCount,
     repostsCount: thread.repostsCount,
     likedByMe: thread.likes?.some((l: any) => l.userId === viewerId) ?? false,
-    repostedByMe: thread.reposts?.some((r: any) => r.userId === viewerId) ?? false,
+    repostedByMe: (thread.reposts ?? []).some((r: any) => r.userId === viewerId),
+    reposts: (thread.reposts ?? []).map((r: any) => ({
+      id: r.id.toString(),
+      repostedBy: r.user,
+      quoteText: r.quoteText ?? null,
+      createdAt: r.createdAt,
+      thread: {
+        id: r.thread.id.toString(),
+        text: r.thread.text,
+        media: (r.thread.media ?? []).map((m: any) => ({
+          id: m.id.toString(),
+          type: m.type,
+          url: m.url,
+          thumbnailUrl: m.thumbnailUrl ?? null,
+          width: m.width,
+          height: m.height,
+          durationSecs: m.durationSecs,
+          mimeType: m.mimeType,
+          order: m.order,
+        })),
+      },
+    })),
     createdAt: thread.createdAt,
     updatedAt: thread.updatedAt,
   };
@@ -67,7 +88,23 @@ const THREAD_INCLUDE = (userId: string) => ({
   author: { select: AUTHOR_SELECT },
   media: { orderBy: { order: 'asc' as const } },
   likes: { where: { userId }, select: { userId: true } },
-  reposts: { where: { userId }, select: { userId: true } },
+  reposts: {
+    orderBy: { createdAt: 'desc' as const },
+    select: {
+      id: true,
+      userId: true,
+      quoteText: true,
+      createdAt: true,
+      user: { select: AUTHOR_SELECT },
+      thread: {
+        select: {
+          id: true,
+          text: true,
+          media: { orderBy: { order: 'asc' as const } },
+        },
+      },
+    },
+  },
 });
 
 // ─── POST /api/threads ──────────────────────────────────────────
