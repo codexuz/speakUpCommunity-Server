@@ -158,7 +158,7 @@ router.get('/sessions/:sessionId', async (req: Request, res: Response) => {
                 pronIssues: true,
                 fillerWords: true,
                 transcript: true,
-              },
+              } as any,
             },
           },
         },
@@ -168,7 +168,7 @@ router.get('/sessions/:sessionId', async (req: Request, res: Response) => {
         },
         _count: { select: { comments: true } },
       },
-    });
+    }) as any;
 
     if (!session) {
       res.status(404).json({ error: 'Session not found' });
