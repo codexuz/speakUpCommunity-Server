@@ -83,6 +83,48 @@ router.get('/my', async (req: Request, res: Response) => {
   }
 });
 
+// GET /api/speaking/user/:userId — get any user's sessions (with visibility filters)
+router.get('/user/:userId', async (req: Request, res: Response) => {
+  try {
+    const auth = (req as AuthenticatedRequest).auth!;
+    const userId = req.params.userId;
+    const page = Math.max(1, parseInt(req.query.page as string) || 1);
+    const limit = Math.min(50, Math.max(1, parseInt(req.query.limit as string) || 20));
+    const offset = (page - 1) * limit;
+
+    const isOwner = auth.userId === userId;
+    const isPrivileged = auth.role === 'teacher' || auth.role === 'admin';
+
+    const where: any = { userId };
+
+    // If not owner/teacher/admin, only show community sessions
+    if (!isOwner && !isPrivileged) {
+      where.visibility = 'community';
+    }
+
+    const [sessions, total] = await Promise.all([
+      prisma.testSession.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip: offset,
+        take: limit,
+        include: {
+          test: { select: { id: true, title: true, description: true } },
+          _count: { select: { responses: true } },
+        },
+      }),
+      prisma.testSession.count({ where }),
+    ]);
+
+    res.json({
+      data: sessions.map((s: any) => ({ ...s, id: s.id.toString() })),
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // GET /api/speaking/sessions/:sessionId — get a session with test, user, responses, and labeled checks
 router.get('/sessions/:sessionId', async (req: Request, res: Response) => {
   try {
