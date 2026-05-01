@@ -307,7 +307,7 @@ router.post('/:id/reply', upload.array('media', 4), async (req: Request, res: Re
             `${auth.username} replied`,
             preview,
             { type: 'thread-reply', threadId: parentId.toString() },
-          ).catch(() => {});
+          ).catch(() => { });
         }
       }
     }
@@ -405,8 +405,8 @@ router.get('/user/:userId', async (req: Request, res: Response) => {
     const visibilityFilter: any = isOwnProfile
       ? {}
       : isFollowing
-      ? { visibility: { in: ['public', 'followers'] } }
-      : { visibility: 'public' };
+        ? { visibility: { in: ['public', 'followers'] } }
+        : { visibility: 'public' };
 
     const threads = await prisma.thread.findMany({
       where: {
@@ -546,7 +546,7 @@ router.post('/:id/like', async (req: Request, res: Response) => {
             `${auth.username} liked your thread`,
             `❤️ ${preview}`,
             { type: 'thread-like', threadId: threadId.toString() },
-          ).catch(() => {});
+          ).catch(() => { });
         }
       }
     }
@@ -565,7 +565,7 @@ router.get('/saved', async (req: Request, res: Response) => {
     const saves = await prisma.threadSave.findMany({
       where: {
         userId: auth.userId,
-        ...(cursor ? { id: { lt: BigInt(cursor) } } : {}),
+        ...(cursor ? { id: { lt: cursor } } : {}),
       },
       orderBy: { id: 'desc' },
       take: limit,
