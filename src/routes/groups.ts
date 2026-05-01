@@ -3,6 +3,7 @@ import multer from 'multer';
 import { v4 as uuidv4 } from 'uuid';
 import { AuthenticatedRequest, authenticateRequest } from '../middleware/auth';
 import prisma from '../prisma';
+import { sendPushNotification, sendPushToMultiple } from '../notifications';
 import { uploadImage } from '../services/minio';
 import { sseManager } from '../services/sse';
 
@@ -605,6 +606,23 @@ router.post('/:id/request-join', async (req: Request, res: Response) => {
       { groupId, userId: auth.userId, username: auth.username },
     );
 
+    // Push notifications to group managers
+    const managerUsers = await prisma.user.findMany({
+      where: { id: { in: managers.map((m) => m.userId) }, pushToken: { not: null } },
+      select: { pushToken: true },
+    });
+    const managerTokens = managerUsers
+      .map((u) => u.pushToken)
+      .filter((t): t is string => !!t);
+    if (managerTokens.length > 0) {
+      sendPushToMultiple(
+        managerTokens,
+        group.name,
+        `${auth.username} wants to join`,
+        { type: 'join-request', groupId },
+      ).catch(() => {});
+    }
+
     res.status(201).json({ ...joinRequest, id: joinRequest.id.toString() });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -688,6 +706,20 @@ router.post('/:id/approve-join/:requestId', async (req: Request, res: Response) 
       groupName: result.group.name,
     });
 
+    // Push notification to the approved user
+    const approvedUser = await prisma.user.findUnique({
+      where: { id: joinRequest.userId },
+      select: { pushToken: true },
+    });
+    if (approvedUser?.pushToken) {
+      sendPushNotification(
+        approvedUser.pushToken,
+        result.group.name,
+        `Your join request has been approved! 🎉`,
+        { type: 'join-approved', groupId: result.group.id },
+      ).catch(() => {});
+    }
+
     res.json({ success: true });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -727,6 +759,20 @@ router.post('/:id/reject-join/:requestId', async (req: Request, res: Response) =
       groupId: result.group.id,
       groupName: result.group.name,
     });
+
+    // Push notification to the rejected user
+    const rejectedUser = await prisma.user.findUnique({
+      where: { id: joinRequest.userId },
+      select: { pushToken: true },
+    });
+    if (rejectedUser?.pushToken) {
+      sendPushNotification(
+        rejectedUser.pushToken,
+        result.group.name,
+        'Your join request was not approved',
+        { type: 'join-rejected', groupId: result.group.id },
+      ).catch(() => {});
+    }
 
     res.json({ success: true });
   } catch (error: any) {

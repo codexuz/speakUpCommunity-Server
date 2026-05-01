@@ -9,6 +9,7 @@ import {
   verifyPassword,
 } from '../middleware/auth';
 import prisma from '../prisma';
+import { sendPushNotification } from '../notifications';
 import { deleteAudio } from '../services/minio';
 
 const router = Router();
@@ -175,6 +176,20 @@ router.post('/:userId/follow', async (req: Request, res: Response) => {
     });
 
     res.json({ success: true });
+
+    // Push notification to the followed user
+    const target = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { pushToken: true },
+    });
+    if (target?.pushToken) {
+      sendPushNotification(
+        target.pushToken,
+        'New follower',
+        `${auth.username} started following you`,
+        { type: 'new-follower', userId: auth.userId },
+      ).catch(() => {});
+    }
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }

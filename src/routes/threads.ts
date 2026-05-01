@@ -3,6 +3,7 @@ import multer from 'multer';
 import { v4 as uuidv4 } from 'uuid';
 import { AuthenticatedRequest, authenticateRequest } from '../middleware/auth';
 import prisma from '../prisma';
+import { sendPushNotification } from '../notifications';
 import { uploadImage, uploadRawVideo, deleteMediaFromUrl, getImageDimensions } from '../services/minio';
 import { enqueueVideoJob } from '../services/queue';
 
@@ -287,6 +288,29 @@ router.post('/:id/reply', upload.array('media', 4), async (req: Request, res: Re
     }
 
     res.status(201).json(formatted);
+
+    // Push notification to parent thread author (skip if replying to own thread)
+    if (parent && !parent.isDeleted) {
+      const parentThread = await prisma.thread.findUnique({
+        where: { id: parentId },
+        select: { authorId: true, text: true },
+      });
+      if (parentThread && parentThread.authorId !== auth.userId) {
+        const author = await prisma.user.findUnique({
+          where: { id: parentThread.authorId },
+          select: { pushToken: true },
+        });
+        if (author?.pushToken) {
+          const preview = text?.trim().slice(0, 80) || '📷 Media';
+          sendPushNotification(
+            author.pushToken,
+            `${auth.username} replied`,
+            preview,
+            { type: 'thread-reply', threadId: parentId.toString() },
+          ).catch(() => {});
+        }
+      }
+    }
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -504,6 +528,27 @@ router.post('/:id/like', async (req: Request, res: Response) => {
         prisma.thread.update({ where: { id: threadId }, data: { likesCount: { increment: 1 } } }),
       ]);
       res.json({ liked: true });
+
+      // Push notification to thread author (skip self-like)
+      const likedThread = await prisma.thread.findUnique({
+        where: { id: threadId },
+        select: { authorId: true, text: true },
+      });
+      if (likedThread && likedThread.authorId !== auth.userId) {
+        const author = await prisma.user.findUnique({
+          where: { id: likedThread.authorId },
+          select: { pushToken: true },
+        });
+        if (author?.pushToken) {
+          const preview = likedThread.text?.slice(0, 60) || 'your thread';
+          sendPushNotification(
+            author.pushToken,
+            `${auth.username} liked your thread`,
+            `❤️ ${preview}`,
+            { type: 'thread-like', threadId: threadId.toString() },
+          ).catch(() => {});
+        }
+      }
     }
   } catch (err: any) {
     res.status(500).json({ error: err.message });

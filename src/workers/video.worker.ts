@@ -10,6 +10,7 @@ import {
 } from '../services/minio';
 import { createRedisConnection } from '../services/redis';
 import { sseManager } from '../services/sse';
+import { sendPushNotification } from '../notifications';
 import { VideoCompressJob } from '../services/queue';
 
 if (process.env.REDIS_URL) {
@@ -86,6 +87,28 @@ if (process.env.REDIS_URL) {
           thumbnailUrl: thumbnailUrl || null,
           durationSecs,
         });
+
+        // 7. Push notification: user may have backgrounded the app
+        const mediaRecord = await prisma.threadMedia.findUnique({
+          where: { id: mediaIdBig },
+          select: { threadId: true },
+        });
+        const user = await prisma.user.findUnique({
+          where: { id: userId },
+          select: { pushToken: true },
+        });
+        if (user?.pushToken) {
+          sendPushNotification(
+            user.pushToken,
+            'Video ready',
+            'Your video has been processed and is now live! 🎬',
+            {
+              type: 'video-ready',
+              mediaId,
+              threadId: mediaRecord?.threadId?.toString() ?? null,
+            },
+          ).catch(() => {});
+        }
       } finally {
         // Clean up local temp files
         for (const p of [rawTmpPath, outputPath, thumbPath]) {
