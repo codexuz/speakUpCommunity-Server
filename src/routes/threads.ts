@@ -59,7 +59,14 @@ function formatThread(thread: any, viewerId: string) {
 }
 
 function parsePaging(req: Request) {
-  const cursor = req.query.cursor ? BigInt(req.query.cursor as string) : undefined;
+  let cursor: bigint | undefined;
+  if (req.query.cursor) {
+    try {
+      cursor = BigInt(req.query.cursor as string);
+    } catch {
+      cursor = undefined;
+    }
+  }
   const limit = Math.min(50, Math.max(1, parseInt(req.query.limit as string) || 20));
   return { cursor, limit };
 }
@@ -385,6 +392,40 @@ router.get('/discover', async (req: Request, res: Response) => {
   }
 });
 
+// ─── GET /api/threads/saved ─────────────────────────────────────
+// List threads saved by the current user
+router.get('/saved', async (req: Request, res: Response) => {
+  try {
+    const auth = (req as AuthenticatedRequest).auth!;
+    const { cursor, limit } = parsePaging(req);
+
+    const saves = await prisma.threadSave.findMany({
+      where: {
+        userId: auth.userId,
+        ...(cursor ? { id: { lt: cursor } } : {}),
+      },
+      orderBy: { id: 'desc' },
+      take: limit,
+      select: {
+        id: true,
+        createdAt: true,
+        thread: { include: THREAD_INCLUDE(auth.userId) },
+      },
+    });
+
+    const nextCursor = saves.length === limit ? saves[saves.length - 1].id.toString() : null;
+
+    res.json({
+      threads: saves
+        .filter((s) => !s.thread.isDeleted)
+        .map((s) => formatThread(s.thread, auth.userId)),
+      nextCursor,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ─── GET /api/threads/user/:userId ──────────────────────────────
 // All root threads by a specific user
 router.get('/user/:userId', async (req: Request, res: Response) => {
@@ -550,40 +591,6 @@ router.post('/:id/like', async (req: Request, res: Response) => {
         }
       }
     }
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// ─── GET /api/threads/saved ─────────────────────────────────────
-// List threads saved by the current user
-router.get('/saved', async (req: Request, res: Response) => {
-  try {
-    const auth = (req as AuthenticatedRequest).auth!;
-    const { cursor, limit } = parsePaging(req);
-
-    const saves = await prisma.threadSave.findMany({
-      where: {
-        userId: auth.userId,
-        ...(cursor ? { id: { lt: cursor } } : {}),
-      },
-      orderBy: { id: 'desc' },
-      take: limit,
-      select: {
-        id: true,
-        createdAt: true,
-        thread: { include: THREAD_INCLUDE(auth.userId) },
-      },
-    });
-
-    const nextCursor = saves.length === limit ? saves[saves.length - 1].id.toString() : null;
-
-    res.json({
-      threads: saves
-        .filter((s) => !s.thread.isDeleted)
-        .map((s) => formatThread(s.thread, auth.userId)),
-      nextCursor,
-    });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
