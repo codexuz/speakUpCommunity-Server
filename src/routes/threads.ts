@@ -71,6 +71,15 @@ function parsePaging(req: Request) {
   return { cursor, limit };
 }
 
+type FeedFilter = 'new' | 'top_liked' | 'top_commented';
+
+function parseFilter(req: Request): { filter: FeedFilter; offset: number } {
+  const raw = (req.query.filter as string || '').toLowerCase();
+  const filter: FeedFilter = (['top_liked', 'top_commented'].includes(raw) ? raw : 'new') as FeedFilter;
+  const offset = Math.max(0, parseInt(req.query.offset as string) || 0);
+  return { filter, offset };
+}
+
 const THREAD_INCLUDE = (userId: string) => ({
   author: { select: AUTHOR_SELECT },
   media: { orderBy: { order: 'asc' as const } },
@@ -325,10 +334,12 @@ router.post('/:id/reply', upload.array('media', 4), async (req: Request, res: Re
 
 // ─── GET /api/threads/feed ──────────────────────────────────────
 // Feed of threads from users the current user follows
+// Supports ?filter=new (default) | top_liked | top_commented
 router.get('/feed', async (req: Request, res: Response) => {
   try {
     const auth = (req as AuthenticatedRequest).auth!;
     const { cursor, limit } = parsePaging(req);
+    const { filter, offset } = parseFilter(req);
 
     // Get list of followed user IDs
     const following = await prisma.userFollow.findMany({
@@ -339,24 +350,51 @@ router.get('/feed', async (req: Request, res: Response) => {
     // Include own threads in feed
     followingIds.push(auth.userId);
 
-    const threads = await prisma.thread.findMany({
-      where: {
-        authorId: { in: followingIds },
-        parentId: null, // root-level only
-        isDeleted: false,
-        ...(cursor ? { id: { lt: cursor } } : {}),
-      },
-      orderBy: { id: 'desc' },
-      take: limit,
-      include: THREAD_INCLUDE(auth.userId),
-    });
+    const baseWhere = {
+      authorId: { in: followingIds },
+      parentId: null, // root-level only
+      isDeleted: false,
+    };
 
-    const nextCursor = threads.length === limit ? threads[threads.length - 1].id.toString() : null;
+    if (filter === 'new') {
+      // Cursor-based pagination for chronological feed
+      const threads = await prisma.thread.findMany({
+        where: {
+          ...baseWhere,
+          ...(cursor ? { id: { lt: cursor } } : {}),
+        },
+        orderBy: { id: 'desc' },
+        take: limit,
+        include: THREAD_INCLUDE(auth.userId),
+      });
 
-    res.json({
-      threads: threads.map((t) => formatThread(t, auth.userId)),
-      nextCursor,
-    });
+      const nextCursor = threads.length === limit ? threads[threads.length - 1].id.toString() : null;
+
+      res.json({
+        threads: threads.map((t) => formatThread(t, auth.userId)),
+        nextCursor,
+      });
+    } else {
+      // Offset-based pagination for sorted feeds
+      const orderBy = filter === 'top_liked'
+        ? [{ likesCount: 'desc' as const }, { id: 'desc' as const }]
+        : [{ repliesCount: 'desc' as const }, { id: 'desc' as const }];
+
+      const threads = await prisma.thread.findMany({
+        where: baseWhere,
+        orderBy,
+        skip: offset,
+        take: limit,
+        include: THREAD_INCLUDE(auth.userId),
+      });
+
+      const nextOffset = threads.length === limit ? offset + limit : null;
+
+      res.json({
+        threads: threads.map((t) => formatThread(t, auth.userId)),
+        nextOffset,
+      });
+    }
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -364,29 +402,58 @@ router.get('/feed', async (req: Request, res: Response) => {
 
 // ─── GET /api/threads/discover ──────────────────────────────────
 // Public discovery feed — all public root threads
+// Supports ?filter=new (default) | top_liked | top_commented
 router.get('/discover', async (req: Request, res: Response) => {
   try {
     const auth = (req as AuthenticatedRequest).auth!;
     const { cursor, limit } = parsePaging(req);
+    const { filter, offset } = parseFilter(req);
 
-    const threads = await prisma.thread.findMany({
-      where: {
-        visibility: 'public',
-        parentId: null,
-        isDeleted: false,
-        ...(cursor ? { id: { lt: cursor } } : {}),
-      },
-      orderBy: { id: 'desc' },
-      take: limit,
-      include: THREAD_INCLUDE(auth.userId),
-    });
+    const baseWhere = {
+      visibility: 'public' as const,
+      parentId: null,
+      isDeleted: false,
+    };
 
-    const nextCursor = threads.length === limit ? threads[threads.length - 1].id.toString() : null;
+    if (filter === 'new') {
+      // Cursor-based pagination for chronological feed
+      const threads = await prisma.thread.findMany({
+        where: {
+          ...baseWhere,
+          ...(cursor ? { id: { lt: cursor } } : {}),
+        },
+        orderBy: { id: 'desc' },
+        take: limit,
+        include: THREAD_INCLUDE(auth.userId),
+      });
 
-    res.json({
-      threads: threads.map((t) => formatThread(t, auth.userId)),
-      nextCursor,
-    });
+      const nextCursor = threads.length === limit ? threads[threads.length - 1].id.toString() : null;
+
+      res.json({
+        threads: threads.map((t) => formatThread(t, auth.userId)),
+        nextCursor,
+      });
+    } else {
+      // Offset-based pagination for sorted feeds
+      const orderBy = filter === 'top_liked'
+        ? [{ likesCount: 'desc' as const }, { id: 'desc' as const }]
+        : [{ repliesCount: 'desc' as const }, { id: 'desc' as const }];
+
+      const threads = await prisma.thread.findMany({
+        where: baseWhere,
+        orderBy,
+        skip: offset,
+        take: limit,
+        include: THREAD_INCLUDE(auth.userId),
+      });
+
+      const nextOffset = threads.length === limit ? offset + limit : null;
+
+      res.json({
+        threads: threads.map((t) => formatThread(t, auth.userId)),
+        nextOffset,
+      });
+    }
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
