@@ -10,21 +10,48 @@ import { enqueueVideoJob } from '../services/queue';
 const router = Router();
 router.use(authenticateRequest);
 
-// Accept up to 4 images OR 1 video per thread post
+/**
+ * Multer instance used for thread media uploads.
+ *
+ * Accepted form-data fields:
+ *   - `media`  — up to 4 images (jpeg/png/webp/gif) OR 1 video (mp4/mov/mkv/webm)
+ *   - `files`  — up to 5 generic file attachments:
+ *                  PDF, Word (.doc/.docx), plain text, ZIP,
+ *                  audio (mp3/wav/ogg/aac/m4a), or any other non-image/video mime
+ *
+ * Individual file size limit: 200 MB.
+ */
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 200 * 1024 * 1024 }, // 200 MB
+  limits: { fileSize: 200 * 1024 * 1024 }, // 200 MB per file
   fileFilter(_req, file, cb) {
     const allowed = [
+      // Images
       'image/jpeg', 'image/png', 'image/webp', 'image/gif',
+      // Videos
       'video/mp4', 'video/quicktime', 'video/x-matroska', 'video/webm',
-      'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      // Documents
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      // Audio
       'audio/mpeg', 'audio/wav', 'audio/x-wav', 'audio/ogg', 'audio/mp4', 'audio/aac',
-      'text/plain', 'application/zip', 'application/x-zip-compressed'
+      // Misc
+      'text/plain', 'application/zip', 'application/x-zip-compressed',
     ];
     cb(null, allowed.includes(file.mimetype));
   },
 });
+
+/**
+ * Multer fields config:
+ *  - `media` — images / videos (max 4 files)
+ *  - `files` — generic file attachments (max 5 files)
+ */
+const uploadFields = upload.fields([
+  { name: 'media', maxCount: 4 },
+  { name: 'files', maxCount: 5 },
+]);
 
 const AUTHOR_SELECT = {
   id: true,
@@ -34,24 +61,43 @@ const AUTHOR_SELECT = {
   verifiedTeacher: true,
 };
 
-/** Shape a thread record for API responses */
+/** Shape a thread record for API responses.
+ *
+ * `media` — images and videos only (type: 'image' | 'video')
+ * `files` — generic file attachments (type: 'file')
+ */
 function formatThread(thread: any, viewerId: string) {
-  return {
-    id: thread.id.toString(),
-    author: thread.author,
-    text: thread.text,
-    media: (thread.media ?? []).map((m: any) => ({
+  const allMedia: any[] = thread.media ?? [];
+
+  const media = allMedia
+    .map((m: any) => ({
       id: m.id.toString(),
       type: m.type,
       url: m.url,
-      fileName: m.fileName ?? null,
       thumbnailUrl: m.thumbnailUrl ?? null,
       width: m.width,
       height: m.height,
       durationSecs: m.durationSecs,
       mimeType: m.mimeType,
       order: m.order,
-    })),
+    } as any));
+
+  const files = (thread.files ?? [])
+    .map((m: any) => ({
+      id: m.id.toString(),
+      url: m.url,
+      fileName: m.fileName ?? null,
+      mimeType: m.mimeType,
+      sizeBytes: m.sizeBytes,
+      order: m.order,
+    } as any));
+
+  return {
+    id: thread.id.toString(),
+    author: thread.author,
+    text: thread.text,
+    media,
+    files,
     parentId: thread.parentId?.toString() ?? null,
     rootId: thread.rootId?.toString() ?? null,
     visibility: thread.visibility,
@@ -90,13 +136,14 @@ function parseFilter(req: Request): { filter: FeedFilter; offset: number } {
 const THREAD_INCLUDE = (userId: string) => ({
   author: { select: AUTHOR_SELECT },
   media: { orderBy: { order: 'asc' as const } },
+  files: { orderBy: { order: 'asc' as const } },
   likes: { where: { userId }, select: { userId: true } },
   saves: { where: { userId }, select: { userId: true } },
 });
 
 // ─── POST /api/threads ──────────────────────────────────────────
-// Create a new thread with optional media
-router.post('/', upload.array('media', 4), async (req: Request, res: Response) => {
+// Create a new thread with optional media (images/videos) and/or file attachments
+router.post('/', uploadFields, async (req: Request, res: Response) => {
   try {
     const auth = (req as AuthenticatedRequest).auth!;
     const { text, visibility = 'public' } = req.body as {
@@ -104,34 +151,40 @@ router.post('/', upload.array('media', 4), async (req: Request, res: Response) =
       visibility?: 'public' | 'followers';
     };
 
-    if (!text?.trim() && (!req.files || (req.files as Express.Multer.File[]).length === 0)) {
+    const fieldFiles = req.files as Record<string, Express.Multer.File[]> | undefined;
+    const mediaFiles = fieldFiles?.['media'] ?? [];
+    const attachmentFiles = fieldFiles?.['files'] ?? [];
+    const allFiles = [...mediaFiles, ...attachmentFiles];
+
+    if (!text?.trim() && allFiles.length === 0) {
       res.status(400).json({ error: 'Thread must have text or media' });
       return;
     }
 
-    const files = (req.files as Express.Multer.File[]) ?? [];
-
-    // Validate: at most 1 video
-    const videoFiles = files.filter((f) => f.mimetype.startsWith('video/'));
+    // Validate media field: at most 1 video, max 4 images, no mixing
+    const videoFiles = mediaFiles.filter((f) => f.mimetype.startsWith('video/'));
     if (videoFiles.length > 1) {
       res.status(400).json({ error: 'Only one video per thread is allowed' });
       return;
     }
-    if (videoFiles.length === 1 && files.length > 1) {
+    if (videoFiles.length === 1 && mediaFiles.length > 1) {
       res.status(400).json({ error: 'Cannot mix video with other media' });
       return;
     }
-    const imageFiles = files.filter((f) => f.mimetype.startsWith('image/'));
+    const imageFiles = mediaFiles.filter((f) => f.mimetype.startsWith('image/'));
     if (imageFiles.length > 4) {
       res.status(400).json({ error: 'Maximum 4 images per thread' });
+      return;
+    }
+    if (attachmentFiles.length > 5) {
+      res.status(400).json({ error: 'Maximum 5 file attachments per thread' });
       return;
     }
 
     // Upload media (images immediately; videos as raw temp → enqueue compression)
     const mediaPayloads: Array<{
-      type: 'image' | 'video' | 'file';
+      type: 'image' | 'video';
       url: string;
-      fileName?: string;
       thumbnailUrl?: string;
       durationSecs?: number;
       width?: number;
@@ -142,8 +195,9 @@ router.post('/', upload.array('media', 4), async (req: Request, res: Response) =
     }> = [];
     const videoPendingItems: Array<{ rawObjectKey: string; ext: string; payloadIndex: number }> = [];
 
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
+    // Process media files (images & videos) first
+    for (let i = 0; i < mediaFiles.length; i++) {
+      const file = mediaFiles[i];
       const ext = (file.originalname.split('.').pop() ?? 'bin').toLowerCase();
       const id = uuidv4();
 
@@ -170,18 +224,32 @@ router.post('/', upload.array('media', 4), async (req: Request, res: Response) =
           mimeType: file.mimetype,
           order: i,
         });
-      } else {
-        // Generic file
-        const url = await uploadFile(`threads/${id}.${ext}`, file.buffer, file.mimetype);
-        mediaPayloads.push({
-          type: 'file',
-          url,
-          fileName: file.originalname,
-          sizeBytes: file.size,
-          mimeType: file.mimetype,
-          order: i,
-        });
       }
+    }
+
+    // Process file attachments (documents, audio, zip, etc.)
+    const filePayloads: Array<{
+      type: 'file';
+      url: string;
+      fileName?: string;
+      sizeBytes: number;
+      mimeType: string;
+      order: number;
+    }> = [];
+
+    for (let i = 0; i < attachmentFiles.length; i++) {
+      const file = attachmentFiles[i];
+      const ext = (file.originalname.split('.').pop() ?? 'bin').toLowerCase();
+      const id = uuidv4();
+      const url = await uploadFile(`threads/files/${id}.${ext}`, file.buffer, file.mimetype);
+      filePayloads.push({
+        type: 'file',
+        url,
+        fileName: file.originalname,
+        sizeBytes: file.size,
+        mimeType: file.mimetype,
+        order: mediaFiles.length + i, // files come after media in order
+      });
     }
 
     const thread: any = await prisma.thread.create({
@@ -191,6 +259,9 @@ router.post('/', upload.array('media', 4), async (req: Request, res: Response) =
         visibility: visibility as any,
         media: {
           create: mediaPayloads as any,
+        },
+        files: {
+          create: filePayloads as any,
         },
       },
       include: THREAD_INCLUDE(auth.userId),
@@ -220,8 +291,8 @@ router.post('/', upload.array('media', 4), async (req: Request, res: Response) =
 });
 
 // ─── POST /api/threads/:id/reply ────────────────────────────────
-// Reply to a thread
-router.post('/:id/reply', upload.array('media', 4), async (req: Request, res: Response) => {
+// Reply to a thread with optional media and/or file attachments
+router.post('/:id/reply', uploadFields, async (req: Request, res: Response) => {
   try {
     const auth = (req as AuthenticatedRequest).auth!;
     const parentId = BigInt(req.params.id as string);
@@ -230,20 +301,26 @@ router.post('/:id/reply', upload.array('media', 4), async (req: Request, res: Re
       visibility?: 'public' | 'followers';
     };
 
-    const files = (req.files as Express.Multer.File[]) ?? [];
+    const replyFieldFiles = req.files as Record<string, Express.Multer.File[]> | undefined;
+    const mediaFiles = replyFieldFiles?.['media'] ?? [];
+    const attachmentFiles = replyFieldFiles?.['files'] ?? [];
 
-    if (!text?.trim() && files.length === 0) {
+    if (!text?.trim() && mediaFiles.length === 0 && attachmentFiles.length === 0) {
       res.status(400).json({ error: 'Reply must have text or media' });
       return;
     }
 
-    const videoFiles = files.filter((f) => f.mimetype.startsWith('video/'));
+    const videoFiles = mediaFiles.filter((f) => f.mimetype.startsWith('video/'));
     if (videoFiles.length > 1) {
       res.status(400).json({ error: 'Only one video per reply is allowed' });
       return;
     }
-    if (videoFiles.length === 1 && files.length > 1) {
+    if (videoFiles.length === 1 && mediaFiles.length > 1) {
       res.status(400).json({ error: 'Cannot mix video with other media' });
+      return;
+    }
+    if (attachmentFiles.length > 5) {
+      res.status(400).json({ error: 'Maximum 5 file attachments per reply' });
       return;
     }
 
@@ -259,9 +336,8 @@ router.post('/:id/reply', upload.array('media', 4), async (req: Request, res: Re
     const rootId = parent.rootId ?? parent.id;
 
     const mediaPayloads: Array<{
-      type: 'image' | 'video' | 'file';
+      type: 'image' | 'video';
       url: string;
-      fileName?: string;
       thumbnailUrl?: string;
       durationSecs?: number;
       width?: number;
@@ -272,8 +348,9 @@ router.post('/:id/reply', upload.array('media', 4), async (req: Request, res: Re
     }> = [];
     const videoPendingItems: Array<{ rawObjectKey: string; ext: string; payloadIndex: number }> = [];
 
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
+    // Process media files (images & videos)
+    for (let i = 0; i < mediaFiles.length; i++) {
+      const file = mediaFiles[i];
       const ext = (file.originalname.split('.').pop() ?? 'bin').toLowerCase();
       const id = uuidv4();
 
@@ -286,18 +363,32 @@ router.post('/:id/reply', upload.array('media', 4), async (req: Request, res: Re
         const url = await uploadImage(`threads/${id}.${ext}`, file.buffer, file.mimetype);
         const { width, height } = await getImageDimensions(file.buffer, ext);
         mediaPayloads.push({ type: 'image', url, width: width || undefined, height: height || undefined, sizeBytes: file.size, mimeType: file.mimetype, order: i });
-      } else {
-        // Generic file
-        const url = await uploadFile(`threads/${id}.${ext}`, file.buffer, file.mimetype);
-        mediaPayloads.push({
-          type: 'file',
-          url,
-          fileName: file.originalname,
-          sizeBytes: file.size,
-          mimeType: file.mimetype,
-          order: i,
-        });
       }
+    }
+
+    // Process file attachments (documents, audio, zip, etc.)
+    const filePayloads: Array<{
+      type: 'file';
+      url: string;
+      fileName?: string;
+      sizeBytes: number;
+      mimeType: string;
+      order: number;
+    }> = [];
+
+    for (let i = 0; i < attachmentFiles.length; i++) {
+      const file = attachmentFiles[i];
+      const ext = (file.originalname.split('.').pop() ?? 'bin').toLowerCase();
+      const id = uuidv4();
+      const url = await uploadFile(`threads/files/${id}.${ext}`, file.buffer, file.mimetype);
+      filePayloads.push({
+        type: 'file',
+        url,
+        fileName: file.originalname,
+        sizeBytes: file.size,
+        mimeType: file.mimetype,
+        order: mediaFiles.length + i,
+      });
     }
 
     const [reply]: [any, any] = await prisma.$transaction([
@@ -309,6 +400,7 @@ router.post('/:id/reply', upload.array('media', 4), async (req: Request, res: Re
           rootId,
           visibility: visibility as any,
           media: { create: mediaPayloads as any },
+          files: { create: filePayloads as any },
         },
         include: THREAD_INCLUDE(auth.userId),
       }),
@@ -745,7 +837,7 @@ router.patch('/:id', async (req: Request, res: Response) => {
 
     const thread = await prisma.thread.findUnique({
       where: { id: threadId },
-      select: { id: true, authorId: true, isDeleted: true, media: { select: { id: true } } },
+      select: { id: true, authorId: true, isDeleted: true, media: { select: { id: true } }, files: { select: { id: true } } },
     });
 
     if (!thread || thread.isDeleted) {
@@ -758,8 +850,8 @@ router.patch('/:id', async (req: Request, res: Response) => {
     }
 
     const trimmedText = text?.trim();
-    if (trimmedText === '' && thread.media.length === 0) {
-      res.status(400).json({ error: 'Thread must have text or media' });
+    if (trimmedText === '' && thread.media.length === 0 && thread.files.length === 0) {
+      res.status(400).json({ error: 'Thread must have text or media/files' });
       return;
     }
 
@@ -801,6 +893,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
         isDeleted: true,
         parentId: true,
         media: { select: { url: true, thumbnailUrl: true } },
+        files: { select: { url: true } },
       },
     });
 
@@ -822,6 +915,12 @@ router.delete('/:id', async (req: Request, res: Response) => {
         }
       }
     }
+    // Delete file attachments from object storage
+    if (thread.files && thread.files.length > 0) {
+      for (const f of thread.files) {
+        await deleteMediaFromUrl(f.url);
+      }
+    }
 
     const ops: any[] = [
       prisma.thread.update({
@@ -830,8 +929,9 @@ router.delete('/:id', async (req: Request, res: Response) => {
       }),
       // Remove likes on the soft-deleted node so the count stays clean
       prisma.threadLike.deleteMany({ where: { threadId } }),
-      // Remove media records from DB since the files are gone
+      // Remove media/files records from DB since the objects are gone
       prisma.threadMedia.deleteMany({ where: { threadId } }),
+      prisma.threadFile.deleteMany({ where: { threadId } }),
     ];
 
     // Keep parent repliesCount in sync when a reply is deleted
