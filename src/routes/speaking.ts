@@ -177,7 +177,7 @@ router.get('/sessions/:sessionId', async (req: Request, res: Response) => {
 
     // Access control: owner, teacher, admin, or public community session
     const isOwner = session.userId === auth.userId;
-    const isPrivileged = auth.role === 'teacher' || auth.role === 'admin';
+    const isPrivileged = auth.role === 'teacher' || auth.role === 'admin' || auth.role === 'student';
     if (!isOwner && !isPrivileged && session.visibility !== 'community') {
       res.status(403).json({ error: 'Access denied' });
       return;
