@@ -4,7 +4,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { AuthenticatedRequest, authenticateRequest } from '../middleware/auth';
 import prisma from '../prisma';
 import { sendPushNotification } from '../notifications';
-import { uploadImage, uploadRawVideo, deleteMediaFromUrl, getImageDimensions } from '../services/minio';
+import { uploadImage, uploadRawVideo, uploadFile, deleteMediaFromUrl, getImageDimensions } from '../services/minio';
 import { enqueueVideoJob } from '../services/queue';
 
 const router = Router();
@@ -15,7 +15,13 @@ const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 200 * 1024 * 1024 }, // 200 MB
   fileFilter(_req, file, cb) {
-    const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'video/mp4', 'video/quicktime', 'video/x-matroska', 'video/webm'];
+    const allowed = [
+      'image/jpeg', 'image/png', 'image/webp', 'image/gif',
+      'video/mp4', 'video/quicktime', 'video/x-matroska', 'video/webm',
+      'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'audio/mpeg', 'audio/wav', 'audio/x-wav', 'audio/ogg', 'audio/mp4', 'audio/aac',
+      'text/plain', 'application/zip', 'application/x-zip-compressed'
+    ];
     cb(null, allowed.includes(file.mimetype));
   },
 });
@@ -38,6 +44,7 @@ function formatThread(thread: any, viewerId: string) {
       id: m.id.toString(),
       type: m.type,
       url: m.url,
+      fileName: m.fileName ?? null,
       thumbnailUrl: m.thumbnailUrl ?? null,
       width: m.width,
       height: m.height,
@@ -122,8 +129,9 @@ router.post('/', upload.array('media', 4), async (req: Request, res: Response) =
 
     // Upload media (images immediately; videos as raw temp → enqueue compression)
     const mediaPayloads: Array<{
-      type: 'image' | 'video';
+      type: 'image' | 'video' | 'file';
       url: string;
+      fileName?: string;
       thumbnailUrl?: string;
       durationSecs?: number;
       width?: number;
@@ -150,7 +158,7 @@ router.post('/', upload.array('media', 4), async (req: Request, res: Response) =
           order: i,
         });
         videoPendingItems.push({ rawObjectKey, ext, payloadIndex: mediaPayloads.length - 1 });
-      } else {
+      } else if (file.mimetype.startsWith('image/')) {
         const url = await uploadImage(`threads/${id}.${ext}`, file.buffer, file.mimetype);
         const { width, height } = await getImageDimensions(file.buffer, ext);
         mediaPayloads.push({
@@ -162,16 +170,27 @@ router.post('/', upload.array('media', 4), async (req: Request, res: Response) =
           mimeType: file.mimetype,
           order: i,
         });
+      } else {
+        // Generic file
+        const url = await uploadFile(`threads/${id}.${ext}`, file.buffer, file.mimetype);
+        mediaPayloads.push({
+          type: 'file',
+          url,
+          fileName: file.originalname,
+          sizeBytes: file.size,
+          mimeType: file.mimetype,
+          order: i,
+        });
       }
     }
 
-    const thread = await prisma.thread.create({
+    const thread: any = await prisma.thread.create({
       data: {
         authorId: auth.userId,
         text: text?.trim() || null,
         visibility: visibility as any,
         media: {
-          create: mediaPayloads,
+          create: mediaPayloads as any,
         },
       },
       include: THREAD_INCLUDE(auth.userId),
@@ -240,8 +259,9 @@ router.post('/:id/reply', upload.array('media', 4), async (req: Request, res: Re
     const rootId = parent.rootId ?? parent.id;
 
     const mediaPayloads: Array<{
-      type: 'image' | 'video';
+      type: 'image' | 'video' | 'file';
       url: string;
+      fileName?: string;
       thumbnailUrl?: string;
       durationSecs?: number;
       width?: number;
@@ -262,14 +282,25 @@ router.post('/:id/reply', upload.array('media', 4), async (req: Request, res: Re
         await uploadRawVideo(rawObjectKey, file.buffer, file.mimetype);
         mediaPayloads.push({ type: 'video', url: '', sizeBytes: file.size, mimeType: file.mimetype, order: i });
         videoPendingItems.push({ rawObjectKey, ext, payloadIndex: mediaPayloads.length - 1 });
-      } else {
+      } else if (file.mimetype.startsWith('image/')) {
         const url = await uploadImage(`threads/${id}.${ext}`, file.buffer, file.mimetype);
         const { width, height } = await getImageDimensions(file.buffer, ext);
         mediaPayloads.push({ type: 'image', url, width: width || undefined, height: height || undefined, sizeBytes: file.size, mimeType: file.mimetype, order: i });
+      } else {
+        // Generic file
+        const url = await uploadFile(`threads/${id}.${ext}`, file.buffer, file.mimetype);
+        mediaPayloads.push({
+          type: 'file',
+          url,
+          fileName: file.originalname,
+          sizeBytes: file.size,
+          mimeType: file.mimetype,
+          order: i,
+        });
       }
     }
 
-    const [reply] = await prisma.$transaction([
+    const [reply]: [any, any] = await prisma.$transaction([
       prisma.thread.create({
         data: {
           authorId: auth.userId,
@@ -277,7 +308,7 @@ router.post('/:id/reply', upload.array('media', 4), async (req: Request, res: Re
           parentId,
           rootId,
           visibility: visibility as any,
-          media: { create: mediaPayloads },
+          media: { create: mediaPayloads as any },
         },
         include: THREAD_INCLUDE(auth.userId),
       }),

@@ -93,6 +93,7 @@ enum ThreadVisibility {
 enum ThreadMediaType {
   image
   video
+  file
 
   @@map("thread_media_type")
 }
@@ -1051,6 +1052,7 @@ model ThreadMedia {
   threadId     BigInt          @map("thread_id")
   type         ThreadMediaType
   url          String
+  fileName     String?         @map("file_name")
   thumbnailUrl String?         @map("thumbnail_url")
   width        Int?
   height       Int?
