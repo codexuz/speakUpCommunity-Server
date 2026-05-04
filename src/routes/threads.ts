@@ -4,21 +4,54 @@ import { v4 as uuidv4 } from 'uuid';
 import { AuthenticatedRequest, authenticateRequest } from '../middleware/auth';
 import prisma from '../prisma';
 import { sendPushNotification } from '../notifications';
-import { uploadImage, uploadRawVideo, deleteMediaFromUrl, getImageDimensions } from '../services/minio';
+import { uploadImage, uploadRawVideo, uploadFile, deleteMediaFromUrl, getImageDimensions } from '../services/minio';
 import { enqueueVideoJob } from '../services/queue';
 
 const router = Router();
 router.use(authenticateRequest);
 
-// Accept up to 4 images OR 1 video per thread post
+/**
+ * Multer instance used for thread media uploads.
+ *
+ * Accepted form-data fields:
+ *   - `media`  — up to 4 images (jpeg/png/webp/gif) OR 1 video (mp4/mov/mkv/webm)
+ *   - `files`  — up to 5 generic file attachments:
+ *                  PDF, Word (.doc/.docx), plain text, ZIP,
+ *                  audio (mp3/wav/ogg/aac/m4a), or any other non-image/video mime
+ *
+ * Individual file size limit: 200 MB.
+ */
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 200 * 1024 * 1024 }, // 200 MB
+  limits: { fileSize: 200 * 1024 * 1024 }, // 200 MB per file
   fileFilter(_req, file, cb) {
-    const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'video/mp4', 'video/quicktime', 'video/x-matroska', 'video/webm'];
+    const allowed = [
+      // Images
+      'image/jpeg', 'image/png', 'image/webp', 'image/gif',
+      // Videos
+      'video/mp4', 'video/quicktime', 'video/x-matroska', 'video/webm',
+      // Documents
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      // Audio
+      'audio/mpeg', 'audio/wav', 'audio/x-wav', 'audio/ogg', 'audio/mp4', 'audio/aac',
+      // Misc
+      'text/plain', 'application/zip', 'application/x-zip-compressed',
+    ];
     cb(null, allowed.includes(file.mimetype));
   },
 });
+
+/**
+ * Multer fields config:
+ *  - `media` — images / videos (max 4 files)
+ *  - `files` — generic file attachments (max 5 files)
+ */
+const uploadFields = upload.fields([
+  { name: 'media', maxCount: 4 },
+  { name: 'files', maxCount: 5 },
+]);
 
 const AUTHOR_SELECT = {
   id: true,
@@ -28,13 +61,16 @@ const AUTHOR_SELECT = {
   verifiedTeacher: true,
 };
 
-/** Shape a thread record for API responses */
+/** Shape a thread record for API responses.
+ *
+ * `media` — images and videos only (type: 'image' | 'video')
+ * `files` — generic file attachments (type: 'file')
+ */
 function formatThread(thread: any, viewerId: string) {
-  return {
-    id: thread.id.toString(),
-    author: thread.author,
-    text: thread.text,
-    media: (thread.media ?? []).map((m: any) => ({
+  const allMedia: any[] = thread.media ?? [];
+
+  const media = allMedia
+    .map((m: any) => ({
       id: m.id.toString(),
       type: m.type,
       url: m.url,
@@ -44,7 +80,24 @@ function formatThread(thread: any, viewerId: string) {
       durationSecs: m.durationSecs,
       mimeType: m.mimeType,
       order: m.order,
-    })),
+    } as any));
+
+  const files = (thread.files ?? [])
+    .map((m: any) => ({
+      id: m.id.toString(),
+      url: m.url,
+      fileName: m.fileName ?? null,
+      mimeType: m.mimeType,
+      sizeBytes: m.sizeBytes,
+      order: m.order,
+    } as any));
+
+  return {
+    id: thread.id.toString(),
+    author: thread.author,
+    text: thread.text,
+    media,
+    files,
     parentId: thread.parentId?.toString() ?? null,
     rootId: thread.rootId?.toString() ?? null,
     visibility: thread.visibility,
@@ -59,21 +112,38 @@ function formatThread(thread: any, viewerId: string) {
 }
 
 function parsePaging(req: Request) {
-  const cursor = req.query.cursor ? BigInt(req.query.cursor as string) : undefined;
+  let cursor: bigint | undefined;
+  if (req.query.cursor) {
+    try {
+      cursor = BigInt(req.query.cursor as string);
+    } catch {
+      cursor = undefined;
+    }
+  }
   const limit = Math.min(50, Math.max(1, parseInt(req.query.limit as string) || 20));
   return { cursor, limit };
+}
+
+type FeedFilter = 'new' | 'top_liked' | 'top_commented';
+
+function parseFilter(req: Request): { filter: FeedFilter; offset: number } {
+  const raw = (req.query.filter as string || '').toLowerCase();
+  const filter: FeedFilter = (['top_liked', 'top_commented'].includes(raw) ? raw : 'new') as FeedFilter;
+  const offset = Math.max(0, parseInt(req.query.offset as string) || 0);
+  return { filter, offset };
 }
 
 const THREAD_INCLUDE = (userId: string) => ({
   author: { select: AUTHOR_SELECT },
   media: { orderBy: { order: 'asc' as const } },
+  files: { orderBy: { order: 'asc' as const } },
   likes: { where: { userId }, select: { userId: true } },
   saves: { where: { userId }, select: { userId: true } },
 });
 
 // ─── POST /api/threads ──────────────────────────────────────────
-// Create a new thread with optional media
-router.post('/', upload.array('media', 4), async (req: Request, res: Response) => {
+// Create a new thread with optional media (images/videos) and/or file attachments
+router.post('/', uploadFields, async (req: Request, res: Response) => {
   try {
     const auth = (req as AuthenticatedRequest).auth!;
     const { text, visibility = 'public' } = req.body as {
@@ -81,26 +151,33 @@ router.post('/', upload.array('media', 4), async (req: Request, res: Response) =
       visibility?: 'public' | 'followers';
     };
 
-    if (!text?.trim() && (!req.files || (req.files as Express.Multer.File[]).length === 0)) {
+    const fieldFiles = req.files as Record<string, Express.Multer.File[]> | undefined;
+    const mediaFiles = fieldFiles?.['media'] ?? [];
+    const attachmentFiles = fieldFiles?.['files'] ?? [];
+    const allFiles = [...mediaFiles, ...attachmentFiles];
+
+    if (!text?.trim() && allFiles.length === 0) {
       res.status(400).json({ error: 'Thread must have text or media' });
       return;
     }
 
-    const files = (req.files as Express.Multer.File[]) ?? [];
-
-    // Validate: at most 1 video
-    const videoFiles = files.filter((f) => f.mimetype.startsWith('video/'));
+    // Validate media field: at most 1 video, max 4 images, no mixing
+    const videoFiles = mediaFiles.filter((f) => f.mimetype.startsWith('video/'));
     if (videoFiles.length > 1) {
       res.status(400).json({ error: 'Only one video per thread is allowed' });
       return;
     }
-    if (videoFiles.length === 1 && files.length > 1) {
+    if (videoFiles.length === 1 && mediaFiles.length > 1) {
       res.status(400).json({ error: 'Cannot mix video with other media' });
       return;
     }
-    const imageFiles = files.filter((f) => f.mimetype.startsWith('image/'));
+    const imageFiles = mediaFiles.filter((f) => f.mimetype.startsWith('image/'));
     if (imageFiles.length > 4) {
       res.status(400).json({ error: 'Maximum 4 images per thread' });
+      return;
+    }
+    if (attachmentFiles.length > 5) {
+      res.status(400).json({ error: 'Maximum 5 file attachments per thread' });
       return;
     }
 
@@ -118,8 +195,9 @@ router.post('/', upload.array('media', 4), async (req: Request, res: Response) =
     }> = [];
     const videoPendingItems: Array<{ rawObjectKey: string; ext: string; payloadIndex: number }> = [];
 
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
+    // Process media files (images & videos) first
+    for (let i = 0; i < mediaFiles.length; i++) {
+      const file = mediaFiles[i];
       const ext = (file.originalname.split('.').pop() ?? 'bin').toLowerCase();
       const id = uuidv4();
 
@@ -134,7 +212,7 @@ router.post('/', upload.array('media', 4), async (req: Request, res: Response) =
           order: i,
         });
         videoPendingItems.push({ rawObjectKey, ext, payloadIndex: mediaPayloads.length - 1 });
-      } else {
+      } else if (file.mimetype.startsWith('image/')) {
         const url = await uploadImage(`threads/${id}.${ext}`, file.buffer, file.mimetype);
         const { width, height } = await getImageDimensions(file.buffer, ext);
         mediaPayloads.push({
@@ -149,13 +227,41 @@ router.post('/', upload.array('media', 4), async (req: Request, res: Response) =
       }
     }
 
-    const thread = await prisma.thread.create({
+    // Process file attachments (documents, audio, zip, etc.)
+    const filePayloads: Array<{
+      type: 'file';
+      url: string;
+      fileName?: string;
+      sizeBytes: number;
+      mimeType: string;
+      order: number;
+    }> = [];
+
+    for (let i = 0; i < attachmentFiles.length; i++) {
+      const file = attachmentFiles[i];
+      const ext = (file.originalname.split('.').pop() ?? 'bin').toLowerCase();
+      const id = uuidv4();
+      const url = await uploadFile(`threads/files/${id}.${ext}`, file.buffer, file.mimetype);
+      filePayloads.push({
+        type: 'file',
+        url,
+        fileName: file.originalname,
+        sizeBytes: file.size,
+        mimeType: file.mimetype,
+        order: mediaFiles.length + i, // files come after media in order
+      });
+    }
+
+    const thread: any = await prisma.thread.create({
       data: {
         authorId: auth.userId,
         text: text?.trim() || null,
         visibility: visibility as any,
         media: {
-          create: mediaPayloads,
+          create: mediaPayloads as any,
+        },
+        files: {
+          create: filePayloads as any,
         },
       },
       include: THREAD_INCLUDE(auth.userId),
@@ -185,8 +291,8 @@ router.post('/', upload.array('media', 4), async (req: Request, res: Response) =
 });
 
 // ─── POST /api/threads/:id/reply ────────────────────────────────
-// Reply to a thread
-router.post('/:id/reply', upload.array('media', 4), async (req: Request, res: Response) => {
+// Reply to a thread with optional media and/or file attachments
+router.post('/:id/reply', uploadFields, async (req: Request, res: Response) => {
   try {
     const auth = (req as AuthenticatedRequest).auth!;
     const parentId = BigInt(req.params.id as string);
@@ -195,20 +301,26 @@ router.post('/:id/reply', upload.array('media', 4), async (req: Request, res: Re
       visibility?: 'public' | 'followers';
     };
 
-    const files = (req.files as Express.Multer.File[]) ?? [];
+    const replyFieldFiles = req.files as Record<string, Express.Multer.File[]> | undefined;
+    const mediaFiles = replyFieldFiles?.['media'] ?? [];
+    const attachmentFiles = replyFieldFiles?.['files'] ?? [];
 
-    if (!text?.trim() && files.length === 0) {
+    if (!text?.trim() && mediaFiles.length === 0 && attachmentFiles.length === 0) {
       res.status(400).json({ error: 'Reply must have text or media' });
       return;
     }
 
-    const videoFiles = files.filter((f) => f.mimetype.startsWith('video/'));
+    const videoFiles = mediaFiles.filter((f) => f.mimetype.startsWith('video/'));
     if (videoFiles.length > 1) {
       res.status(400).json({ error: 'Only one video per reply is allowed' });
       return;
     }
-    if (videoFiles.length === 1 && files.length > 1) {
+    if (videoFiles.length === 1 && mediaFiles.length > 1) {
       res.status(400).json({ error: 'Cannot mix video with other media' });
+      return;
+    }
+    if (attachmentFiles.length > 5) {
+      res.status(400).json({ error: 'Maximum 5 file attachments per reply' });
       return;
     }
 
@@ -236,8 +348,9 @@ router.post('/:id/reply', upload.array('media', 4), async (req: Request, res: Re
     }> = [];
     const videoPendingItems: Array<{ rawObjectKey: string; ext: string; payloadIndex: number }> = [];
 
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
+    // Process media files (images & videos)
+    for (let i = 0; i < mediaFiles.length; i++) {
+      const file = mediaFiles[i];
       const ext = (file.originalname.split('.').pop() ?? 'bin').toLowerCase();
       const id = uuidv4();
 
@@ -246,14 +359,39 @@ router.post('/:id/reply', upload.array('media', 4), async (req: Request, res: Re
         await uploadRawVideo(rawObjectKey, file.buffer, file.mimetype);
         mediaPayloads.push({ type: 'video', url: '', sizeBytes: file.size, mimeType: file.mimetype, order: i });
         videoPendingItems.push({ rawObjectKey, ext, payloadIndex: mediaPayloads.length - 1 });
-      } else {
+      } else if (file.mimetype.startsWith('image/')) {
         const url = await uploadImage(`threads/${id}.${ext}`, file.buffer, file.mimetype);
         const { width, height } = await getImageDimensions(file.buffer, ext);
         mediaPayloads.push({ type: 'image', url, width: width || undefined, height: height || undefined, sizeBytes: file.size, mimeType: file.mimetype, order: i });
       }
     }
 
-    const [reply] = await prisma.$transaction([
+    // Process file attachments (documents, audio, zip, etc.)
+    const filePayloads: Array<{
+      type: 'file';
+      url: string;
+      fileName?: string;
+      sizeBytes: number;
+      mimeType: string;
+      order: number;
+    }> = [];
+
+    for (let i = 0; i < attachmentFiles.length; i++) {
+      const file = attachmentFiles[i];
+      const ext = (file.originalname.split('.').pop() ?? 'bin').toLowerCase();
+      const id = uuidv4();
+      const url = await uploadFile(`threads/files/${id}.${ext}`, file.buffer, file.mimetype);
+      filePayloads.push({
+        type: 'file',
+        url,
+        fileName: file.originalname,
+        sizeBytes: file.size,
+        mimeType: file.mimetype,
+        order: mediaFiles.length + i,
+      });
+    }
+
+    const [reply]: [any, any] = await prisma.$transaction([
       prisma.thread.create({
         data: {
           authorId: auth.userId,
@@ -261,7 +399,8 @@ router.post('/:id/reply', upload.array('media', 4), async (req: Request, res: Re
           parentId,
           rootId,
           visibility: visibility as any,
-          media: { create: mediaPayloads },
+          media: { create: mediaPayloads as any },
+          files: { create: filePayloads as any },
         },
         include: THREAD_INCLUDE(auth.userId),
       }),
@@ -307,7 +446,7 @@ router.post('/:id/reply', upload.array('media', 4), async (req: Request, res: Re
             `${auth.username} replied`,
             preview,
             { type: 'thread-reply', threadId: parentId.toString() },
-          ).catch(() => {});
+          ).catch(() => { });
         }
       }
     }
@@ -318,10 +457,12 @@ router.post('/:id/reply', upload.array('media', 4), async (req: Request, res: Re
 
 // ─── GET /api/threads/feed ──────────────────────────────────────
 // Feed of threads from users the current user follows
+// Supports ?filter=new (default) | top_liked | top_commented
 router.get('/feed', async (req: Request, res: Response) => {
   try {
     const auth = (req as AuthenticatedRequest).auth!;
     const { cursor, limit } = parsePaging(req);
+    const { filter, offset } = parseFilter(req);
 
     // Get list of followed user IDs
     const following = await prisma.userFollow.findMany({
@@ -332,24 +473,51 @@ router.get('/feed', async (req: Request, res: Response) => {
     // Include own threads in feed
     followingIds.push(auth.userId);
 
-    const threads = await prisma.thread.findMany({
-      where: {
-        authorId: { in: followingIds },
-        parentId: null, // root-level only
-        isDeleted: false,
-        ...(cursor ? { id: { lt: cursor } } : {}),
-      },
-      orderBy: { id: 'desc' },
-      take: limit,
-      include: THREAD_INCLUDE(auth.userId),
-    });
+    const baseWhere = {
+      authorId: { in: followingIds },
+      parentId: null, // root-level only
+      isDeleted: false,
+    };
 
-    const nextCursor = threads.length === limit ? threads[threads.length - 1].id.toString() : null;
+    if (filter === 'new') {
+      // Cursor-based pagination for chronological feed
+      const threads = await prisma.thread.findMany({
+        where: {
+          ...baseWhere,
+          ...(cursor ? { id: { lt: cursor } } : {}),
+        },
+        orderBy: { id: 'desc' },
+        take: limit,
+        include: THREAD_INCLUDE(auth.userId),
+      });
 
-    res.json({
-      threads: threads.map((t) => formatThread(t, auth.userId)),
-      nextCursor,
-    });
+      const nextCursor = threads.length === limit ? threads[threads.length - 1].id.toString() : null;
+
+      res.json({
+        threads: threads.map((t) => formatThread(t, auth.userId)),
+        nextCursor,
+      });
+    } else {
+      // Offset-based pagination for sorted feeds
+      const orderBy = filter === 'top_liked'
+        ? [{ likesCount: 'desc' as const }, { id: 'desc' as const }]
+        : [{ repliesCount: 'desc' as const }, { id: 'desc' as const }];
+
+      const threads = await prisma.thread.findMany({
+        where: baseWhere,
+        orderBy,
+        skip: offset,
+        take: limit,
+        include: THREAD_INCLUDE(auth.userId),
+      });
+
+      const nextOffset = threads.length === limit ? offset + limit : null;
+
+      res.json({
+        threads: threads.map((t) => formatThread(t, auth.userId)),
+        nextOffset,
+      });
+    }
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -357,27 +525,90 @@ router.get('/feed', async (req: Request, res: Response) => {
 
 // ─── GET /api/threads/discover ──────────────────────────────────
 // Public discovery feed — all public root threads
+// Supports ?filter=new (default) | top_liked | top_commented
 router.get('/discover', async (req: Request, res: Response) => {
   try {
     const auth = (req as AuthenticatedRequest).auth!;
     const { cursor, limit } = parsePaging(req);
+    const { filter, offset } = parseFilter(req);
 
-    const threads = await prisma.thread.findMany({
+    const baseWhere = {
+      visibility: 'public' as const,
+      parentId: null,
+      isDeleted: false,
+    };
+
+    if (filter === 'new') {
+      // Cursor-based pagination for chronological feed
+      const threads = await prisma.thread.findMany({
+        where: {
+          ...baseWhere,
+          ...(cursor ? { id: { lt: cursor } } : {}),
+        },
+        orderBy: { id: 'desc' },
+        take: limit,
+        include: THREAD_INCLUDE(auth.userId),
+      });
+
+      const nextCursor = threads.length === limit ? threads[threads.length - 1].id.toString() : null;
+
+      res.json({
+        threads: threads.map((t) => formatThread(t, auth.userId)),
+        nextCursor,
+      });
+    } else {
+      // Offset-based pagination for sorted feeds
+      const orderBy = filter === 'top_liked'
+        ? [{ likesCount: 'desc' as const }, { id: 'desc' as const }]
+        : [{ repliesCount: 'desc' as const }, { id: 'desc' as const }];
+
+      const threads = await prisma.thread.findMany({
+        where: baseWhere,
+        orderBy,
+        skip: offset,
+        take: limit,
+        include: THREAD_INCLUDE(auth.userId),
+      });
+
+      const nextOffset = threads.length === limit ? offset + limit : null;
+
+      res.json({
+        threads: threads.map((t) => formatThread(t, auth.userId)),
+        nextOffset,
+      });
+    }
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── GET /api/threads/saved ─────────────────────────────────────
+// List threads saved by the current user
+router.get('/saved', async (req: Request, res: Response) => {
+  try {
+    const auth = (req as AuthenticatedRequest).auth!;
+    const { cursor, limit } = parsePaging(req);
+
+    const saves = await prisma.threadSave.findMany({
       where: {
-        visibility: 'public',
-        parentId: null,
-        isDeleted: false,
+        userId: auth.userId,
         ...(cursor ? { id: { lt: cursor } } : {}),
       },
       orderBy: { id: 'desc' },
       take: limit,
-      include: THREAD_INCLUDE(auth.userId),
+      select: {
+        id: true,
+        createdAt: true,
+        thread: { include: THREAD_INCLUDE(auth.userId) },
+      },
     });
 
-    const nextCursor = threads.length === limit ? threads[threads.length - 1].id.toString() : null;
+    const nextCursor = saves.length === limit ? saves[saves.length - 1].id.toString() : null;
 
     res.json({
-      threads: threads.map((t) => formatThread(t, auth.userId)),
+      threads: saves
+        .filter((s) => !s.thread.isDeleted)
+        .map((s) => formatThread(s.thread, auth.userId)),
       nextCursor,
     });
   } catch (err: any) {
@@ -405,8 +636,8 @@ router.get('/user/:userId', async (req: Request, res: Response) => {
     const visibilityFilter: any = isOwnProfile
       ? {}
       : isFollowing
-      ? { visibility: { in: ['public', 'followers'] } }
-      : { visibility: 'public' };
+        ? { visibility: { in: ['public', 'followers'] } }
+        : { visibility: 'public' };
 
     const threads = await prisma.thread.findMany({
       where: {
@@ -546,44 +777,10 @@ router.post('/:id/like', async (req: Request, res: Response) => {
             `${auth.username} liked your thread`,
             `❤️ ${preview}`,
             { type: 'thread-like', threadId: threadId.toString() },
-          ).catch(() => {});
+          ).catch(() => { });
         }
       }
     }
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// ─── GET /api/threads/saved ─────────────────────────────────────
-// List threads saved by the current user
-router.get('/saved', async (req: Request, res: Response) => {
-  try {
-    const auth = (req as AuthenticatedRequest).auth!;
-    const { cursor, limit } = parsePaging(req);
-
-    const saves = await prisma.threadSave.findMany({
-      where: {
-        userId: auth.userId,
-        ...(cursor ? { id: { lt: BigInt(cursor) } } : {}),
-      },
-      orderBy: { id: 'desc' },
-      take: limit,
-      select: {
-        id: true,
-        createdAt: true,
-        thread: { include: THREAD_INCLUDE(auth.userId) },
-      },
-    });
-
-    const nextCursor = saves.length === limit ? saves[saves.length - 1].id.toString() : null;
-
-    res.json({
-      threads: saves
-        .filter((s) => !s.thread.isDeleted)
-        .map((s) => formatThread(s.thread, auth.userId)),
-      nextCursor,
-    });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -640,7 +837,7 @@ router.patch('/:id', async (req: Request, res: Response) => {
 
     const thread = await prisma.thread.findUnique({
       where: { id: threadId },
-      select: { id: true, authorId: true, isDeleted: true, media: { select: { id: true } } },
+      select: { id: true, authorId: true, isDeleted: true, media: { select: { id: true } }, files: { select: { id: true } } },
     });
 
     if (!thread || thread.isDeleted) {
@@ -653,8 +850,8 @@ router.patch('/:id', async (req: Request, res: Response) => {
     }
 
     const trimmedText = text?.trim();
-    if (trimmedText === '' && thread.media.length === 0) {
-      res.status(400).json({ error: 'Thread must have text or media' });
+    if (trimmedText === '' && thread.media.length === 0 && thread.files.length === 0) {
+      res.status(400).json({ error: 'Thread must have text or media/files' });
       return;
     }
 
@@ -696,6 +893,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
         isDeleted: true,
         parentId: true,
         media: { select: { url: true, thumbnailUrl: true } },
+        files: { select: { url: true } },
       },
     });
 
@@ -717,6 +915,12 @@ router.delete('/:id', async (req: Request, res: Response) => {
         }
       }
     }
+    // Delete file attachments from object storage
+    if (thread.files && thread.files.length > 0) {
+      for (const f of thread.files) {
+        await deleteMediaFromUrl(f.url);
+      }
+    }
 
     const ops: any[] = [
       prisma.thread.update({
@@ -725,8 +929,9 @@ router.delete('/:id', async (req: Request, res: Response) => {
       }),
       // Remove likes on the soft-deleted node so the count stays clean
       prisma.threadLike.deleteMany({ where: { threadId } }),
-      // Remove media records from DB since the files are gone
+      // Remove media/files records from DB since the objects are gone
       prisma.threadMedia.deleteMany({ where: { threadId } }),
+      prisma.threadFile.deleteMany({ where: { threadId } }),
     ];
 
     // Keep parent repliesCount in sync when a reply is deleted

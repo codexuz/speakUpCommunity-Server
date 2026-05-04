@@ -80,14 +80,14 @@ router.delete('/me', async (req: Request, res: Response) => {
     await blacklistToken(token);
 
     // Delete avatar from object storage if present
-    if (user.avatarUrl) {
-      try {
-        const fileName = user.avatarUrl.split('/').pop();
-        if (fileName) await deleteAudio(fileName);
-      } catch {
-        // Non-fatal — proceed with account deletion
-      }
-    }
+    // if (user.avatarUrl) {
+    //   try {
+    //     const fileName = user.avatarUrl.split('/').pop();
+    //     if (fileName) await deleteAudio(fileName);
+    //   } catch {
+    //     // Non-fatal — proceed with account deletion
+    //   }
+    // }
 
     await prisma.user.delete({ where: { id: auth.userId } });
 

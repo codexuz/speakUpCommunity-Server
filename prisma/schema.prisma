@@ -93,6 +93,7 @@ enum ThreadVisibility {
 enum ThreadMediaType {
   image
   video
+  file
 
   @@map("thread_media_type")
 }
@@ -1035,6 +1036,7 @@ model Thread {
   root          Thread?        @relation("RootReplies", fields: [rootId], references: [id], onDelete: Cascade)
   rootedThreads Thread[]       @relation("RootReplies")
   media         ThreadMedia[]
+  files         ThreadFile[]
   likes         ThreadLike[]
   saves         ThreadSave[]
   reports       ThreadReport[]
@@ -1051,6 +1053,7 @@ model ThreadMedia {
   threadId     BigInt          @map("thread_id")
   type         ThreadMediaType
   url          String
+  fileName     String?         @map("file_name")
   thumbnailUrl String?         @map("thumbnail_url")
   width        Int?
   height       Int?
@@ -1064,6 +1067,23 @@ model ThreadMedia {
 
   @@index([threadId])
   @@map("thread_media")
+}
+
+model ThreadFile {
+  id           BigInt          @id @default(autoincrement())
+  threadId     BigInt          @map("thread_id")
+  type         String          @default("file")
+  url          String
+  fileName     String?         @map("file_name")
+  sizeBytes    Int?            @map("size_bytes")
+  mimeType     String          @map("mime_type")
+  order        Int             @default(0)
+  createdAt    DateTime        @default(now()) @map("created_at") @db.Timestamptz
+
+  thread Thread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+
+  @@index([threadId])
+  @@map("thread_files")
 }
 
 model ThreadLike {
