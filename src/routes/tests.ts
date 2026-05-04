@@ -8,6 +8,39 @@ import { uploadFile } from '../services/minio';
 
 const router = Router();
 
+// GET /api/tests/export/cefr — download all CEFR tests with questions as JSON (Public)
+router.get('/export/cefr', async (req: Request, res: Response) => {
+  try {
+    const { isPublished } = req.query;
+    const where: any = { testType: 'cefr' };
+
+    if (isPublished !== undefined) {
+      where.isPublished = isPublished === 'true';
+    }
+
+    const tests = await prisma.test.findMany({
+      where,
+      orderBy: { id: 'asc' },
+      include: {
+        questions: {
+          orderBy: { id: 'asc' },
+          include: {
+            sampleAnswers: {
+              orderBy: [{ level: 'asc' }, { version: 'asc' }],
+            },
+          },
+        },
+      },
+    });
+
+    res.setHeader('Content-Disposition', 'attachment; filename=cefr_tests.json');
+    res.setHeader('Content-Type', 'application/json');
+    res.send(JSON.stringify(tests, null, 2));
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 router.use(authenticateRequest);
 
 const questionImageUpload = multer({
@@ -73,6 +106,7 @@ router.get('/', async (req: Request, res: Response) => {
     res.status(500).json({ error: error.message });
   }
 });
+
 
 // GET /api/tests/:id — single test with questions
 router.get('/:id', async (req: Request, res: Response) => {
