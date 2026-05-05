@@ -334,7 +334,8 @@ router.post(
 
       // Upload audio to MinIO
       if (req.file) {
-        fileName = `${auth.userId}/${Date.now()}_${req.file.originalname || 'audio.m4a'}`;
+        const audioName = `${Date.now()}_${req.file.originalname ? req.file.originalname.replace(/\.[^/.]+$/, '') : 'audio'}`;
+        fileName = `speaking_responses/${auth.userId}/${audioName}.m4a`;
         remoteUrl = await uploadAudio(
           fileName,
           req.file.buffer,
