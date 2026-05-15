@@ -1130,3 +1130,81 @@ model ThreadReport {
   @@index([userId])
   @@map("thread_reports")
 }
+
+// ─── Speaking Library ──────────────────────────────────────────
+
+model SpeakingPart {
+  id        Int      @id @default(autoincrement())
+  part      Int      // 1, 2, 3
+  title     String?
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  topics SpeakingTopic[]
+
+  @@map("speaking_parts")
+}
+
+model SpeakingTopic {
+  id        Int      @id @default(autoincrement())
+  partId    Int      @map("part_id")
+  title     String
+  imageUrl  String?  @map("image_url")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  part      SpeakingPart       @relation(fields: [partId], references: [id], onDelete: Cascade)
+  questions SpeakingQuestion[]
+
+  @@map("speaking_topics")
+}
+
+model SpeakingQuestion {
+  id        Int      @id @default(autoincrement())
+  topicId   Int      @map("topic_id")
+  text      String
+  audioUrl  String?  @map("audio_url")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  topic         SpeakingTopic          @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  vocabulary    SpeakingVocabulary[]
+  ideas         SpeakingIdea[]
+  sampleAnswers SpeakingSampleAnswer[]
+
+  @@map("speaking_questions")
+}
+
+model SpeakingVocabulary {
+  id         Int      @id @default(autoincrement())
+  questionId Int      @map("question_id")
+  word       String
+  definition String?
+  example    String?
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  question SpeakingQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@map("speaking_vocabulary")
+}
+
+model SpeakingIdea {
+  id         Int      @id @default(autoincrement())
+  questionId Int      @map("question_id")
+  text       String
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  question SpeakingQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@map("speaking_ideas")
+}
+
+model SpeakingSampleAnswer {
+  id         Int      @id @default(autoincrement())
+  questionId Int      @map("question_id")
+  text       String
+  audioUrl   String?  @map("audio_url")
+  cefrLevel  String?  @map("cefr_level")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  question SpeakingQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@map("speaking_sample_answers")
+}
